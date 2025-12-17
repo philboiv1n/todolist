@@ -106,9 +106,9 @@ a:not(.uk-button):not(.uk-link-reset) {
 
 /* Header button icon alignment */
 .todo-nav-icon {
-    margin-left: 0.45em;
+    margin-right: 0.25em;
     position: relative;
-    top: -1px;
+    top: -2px;
 }
 
 /* Primary buttons */

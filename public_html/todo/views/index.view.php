@@ -75,7 +75,7 @@ $editableLists = array_values(array_filter(
         <?php else: ?>
             <?php if (empty($userLists)): ?>
                 <div class="uk-alert uk-alert-warning" role="status">
-                    <p>No lists yet. Create one in <a href="settings.php">My settings</a>.</p>
+                    <p>No lists yet. Create one in <a href="settings.php">Settings</a>.</p>
                 </div>
 	            <?php else: ?>
 	                <?php if (!empty($editableLists)): ?>
