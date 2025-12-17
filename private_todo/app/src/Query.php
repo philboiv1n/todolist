@@ -1,0 +1,645 @@
+<?php
+
+namespace TodoApp;
+
+use SQLite3;
+
+/**
+ * Centralized DB access layer.
+ *
+ * This app is small, so this stays as a single static class rather than
+ * multiple repositories/services.
+ */
+class Query
+{
+
+    // --- USERS ---
+
+    /** Fetch a user row by username. */
+    public static function getUserByUsername(SQLite3 $db, string $username): ?array
+    {
+        $stmt = $db->prepare("SELECT * FROM users WHERE username = :u");
+        $stmt->bindValue(':u', $username, SQLITE3_TEXT);
+        $res = $stmt->execute();
+        $row = $res->fetchArray(SQLITE3_ASSOC);
+        return $row ?: null;
+    }
+
+    /** Fetch a user row by ID. */
+    public static function getUserById(SQLite3 $db, int $id): ?array
+    {
+        $stmt = $db->prepare("SELECT * FROM users WHERE id = :id");
+        $stmt->bindValue(':id', $id, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+        $row = $res->fetchArray(SQLITE3_ASSOC);
+        return $row ?: null;
+    }
+
+    // --- LISTS & ACCESS ---
+
+    /** Fetch a list row by ID. */
+    public static function getListById(SQLite3 $db, int $listId): ?array
+    {
+        $stmt = $db->prepare('SELECT * FROM lists WHERE id = :id LIMIT 1');
+        $stmt->bindValue(':id', $listId, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+        $row = $res->fetchArray(SQLITE3_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Return lists the user has access to, including an access flag (`can_edit`).
+     *
+     * Also computes a helper flag (`is_personal`) so the personal list can be
+     * sorted first.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function getAccessibleLists(SQLite3 $db, int $userId): array
+    {
+        $stmt = $db->prepare(
+            "SELECT lists.*,
+                    list_access.can_edit AS can_edit,
+                    CASE
+                        WHEN lists.created_by = :uid AND lists.name = 'Personal list' THEN 1
+                        ELSE 0
+                    END AS is_personal
+             FROM lists
+             INNER JOIN list_access ON list_access.list_id = lists.id
+             WHERE list_access.user_id = :uid
+             ORDER BY is_personal DESC, lists.name"
+        );
+        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+
+        $lists = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $lists[] = $row;
+        }
+        return $lists;
+    }
+
+    /**
+     * Return a single list the user can access (including `can_edit`), or null.
+     *
+     * @return ?array<string, mixed>
+     */
+    public static function getAccessibleListById(SQLite3 $db, int $userId, int $listId): ?array
+    {
+        $stmt = $db->prepare(
+            "SELECT lists.*,
+                    list_access.can_edit AS can_edit,
+                    CASE
+                        WHEN lists.created_by = :uid AND lists.name = 'Personal list' THEN 1
+                        ELSE 0
+                    END AS is_personal
+             FROM lists
+             INNER JOIN list_access ON list_access.list_id = lists.id
+             WHERE list_access.user_id = :uid
+               AND lists.id = :lid
+             LIMIT 1"
+        );
+        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+        $row = $res->fetchArray(SQLITE3_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Check whether a user has access to a list.
+     *
+     * If `$requireEdit` is true, the access row must also have `can_edit = 1`.
+     */
+    public static function userHasListAccess(SQLite3 $db, int $userId, int $listId, bool $requireEdit = false): bool
+    {
+        $sql = "SELECT 1 FROM list_access WHERE list_id = :lid AND user_id = :uid";
+        if ($requireEdit) {
+            $sql .= " AND can_edit = 1";
+        }
+        $sql .= " LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+        return (bool)$res->fetchArray(SQLITE3_ASSOC);
+    }
+
+    /**
+     * Return lists owned by the user (created_by = user ID), including owner username.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function getListsOwnedByUser(SQLite3 $db, int $userId): array
+    {
+        $stmt = $db->prepare(
+            'SELECT lists.id, lists.name, lists.created_by, lists.created_at, users.username AS owner_name
+             FROM lists
+             LEFT JOIN users ON users.id = lists.created_by
+             WHERE lists.created_by = :uid
+             ORDER BY lists.created_at, lists.id'
+        );
+        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+
+        $lists = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $lists[] = $row;
+        }
+        return $lists;
+    }
+
+    // --- TODOS ---
+
+    /**
+     * Fetch a todo by ID if the user can edit it.
+     *
+     * @return ?array<string, mixed>
+     */
+    public static function fetchAccessibleTodo(SQLite3 $db, int $userId, int $todoId): ?array
+    {
+        $stmt = $db->prepare(
+            "SELECT todos.*
+             FROM todos
+             INNER JOIN list_access ON list_access.list_id = todos.list_id
+             WHERE list_access.user_id = :uid
+               AND list_access.can_edit = 1
+               AND todos.id = :id
+             LIMIT 1"
+        );
+        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        $stmt->bindValue(':id', $todoId, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+        $row = $res->fetchArray(SQLITE3_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * Create a new todo item and return its ID.
+     *
+     * `$dueDate` is stored as an ISO date string (`YYYY-MM-DD`) or NULL.
+     */
+    public static function createTodo(SQLite3 $db, int $userId, int $listId, string $title, ?string $dueDate = null): int
+    {
+        $stmt = $db->prepare(
+            "INSERT INTO todos (user_id, list_id, title, due_date)
+             VALUES (:uid, :lid, :title, :due_date)"
+        );
+        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $stmt->bindValue(':title', $title, SQLITE3_TEXT);
+
+        if ($dueDate === null || $dueDate === '') {
+            $stmt->bindValue(':due_date', null, SQLITE3_NULL);
+        } else {
+            $stmt->bindValue(':due_date', $dueDate, SQLITE3_TEXT);
+        }
+
+        $stmt->execute();
+        return (int)$db->lastInsertRowID();
+    }
+
+    /** Toggle a todo's done flag (`is_done`). */
+    public static function toggleTodoDone(SQLite3 $db, int $todoId): void
+    {
+        $stmt = $db->prepare(
+            "UPDATE todos
+             SET is_done = 1 - is_done
+             WHERE id = :id"
+        );
+        $stmt->bindValue(':id', $todoId, SQLITE3_INTEGER);
+        $stmt->execute();
+    }
+
+    /** Delete a todo by ID. */
+    public static function deleteTodo(SQLite3 $db, int $todoId): void
+    {
+        $stmt = $db->prepare('DELETE FROM todos WHERE id = :id');
+        $stmt->bindValue(':id', $todoId, SQLITE3_INTEGER);
+        $stmt->execute();
+    }
+
+    /**
+     * Fetch all todos for a user for the given lists.
+     *
+     * @return array<int, array<int, array<string, mixed>>> Map: list_id => todo rows.
+     */
+    public static function getAllUserTodosByList(SQLite3 $db, int $userId, array $listIds): array
+    {
+        if (empty($listIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($listIds), '?'));
+        $sql = "
+            SELECT todos.*
+            FROM todos
+            INNER JOIN list_access ON list_access.list_id = todos.list_id
+            WHERE list_access.user_id = ?
+              AND todos.list_id IN ({$placeholders})
+            ORDER BY
+                todos.list_id,
+                todos.is_done ASC,
+                (todos.due_date IS NULL) ASC,
+                todos.due_date ASC,
+                todos.created_at DESC
+        ";
+
+        $stmt = $db->prepare($sql);
+        $stmt->bindValue(1, $userId, SQLITE3_INTEGER);
+        foreach ($listIds as $i => $listId) {
+            $stmt->bindValue($i + 2, $listId, SQLITE3_INTEGER);
+        }
+
+        $res = $stmt->execute();
+        $todosByList = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $listId = (int)$row['list_id'];
+            $todosByList[$listId][] = $row;
+        }
+        return $todosByList;
+    }
+
+    /**
+     * Ensure the user has a "Personal list" and access to it; return its list ID.
+     */
+    public static function ensurePersonalList(SQLite3 $db, int $userId, string $username): int
+    {
+        // Treat the personal list as a default starter list: create one only if the
+        // user doesn't own any list yet, and allow renaming/deleting like any other.
+        $stmt = $db->prepare('SELECT id FROM lists WHERE created_by = :uid ORDER BY created_at, id LIMIT 1');
+        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+        $row = $res->fetchArray(SQLITE3_ASSOC);
+        if ($row) {
+            $listId = (int)$row['id'];
+        } else {
+            $stmt = $db->prepare('INSERT INTO lists (name, created_by) VALUES (:n, :uid)');
+            $stmt->bindValue(':n', 'Personal list', SQLITE3_TEXT);
+            $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+            $stmt->execute();
+            $listId = (int)$db->lastInsertRowID();
+        }
+
+        $stmt = $db->prepare(
+            'INSERT OR IGNORE INTO list_access (list_id, user_id, can_edit) VALUES (:lid, :uid, 1)'
+        );
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        $stmt->execute();
+
+        return $listId;
+    }
+
+    /** Check if a username already exists. */
+    public static function usernameExists(SQLite3 $db, string $username): bool
+    {
+        $stmt = $db->prepare('SELECT 1 FROM users WHERE username = :u LIMIT 1');
+        $stmt->bindValue(':u', $username, SQLITE3_TEXT);
+        $res = $stmt->execute();
+        return (bool)$res->fetchArray(SQLITE3_ASSOC);
+    }
+
+    /** Create a user and return their ID. */
+    public static function createUser(SQLite3 $db, string $username, string $passwordHash, int $isAdmin = 0): int
+    {
+        $stmt = $db->prepare(
+            'INSERT INTO users (username, password_hash, is_admin) VALUES (:u, :p, :a)'
+        );
+        $stmt->bindValue(':u', $username, SQLITE3_TEXT);
+        $stmt->bindValue(':p', $passwordHash, SQLITE3_TEXT);
+        $stmt->bindValue(':a', $isAdmin, SQLITE3_INTEGER);
+        $stmt->execute();
+        return (int)$db->lastInsertRowID();
+    }
+
+    /** Set the password hash for a user. */
+    public static function setUserPassword(SQLite3 $db, int $userId, string $passwordHash): void
+    {
+        $stmt = $db->prepare('UPDATE users SET password_hash = :p WHERE id = :id');
+        $stmt->bindValue(':p', $passwordHash, SQLITE3_TEXT);
+        $stmt->bindValue(':id', $userId, SQLITE3_INTEGER);
+        $stmt->execute();
+    }
+
+    /** Toggle a user's admin flag (`is_admin`). */
+    public static function toggleUserAdmin(SQLite3 $db, int $userId): void
+    {
+        $stmt = $db->prepare(
+            'UPDATE users
+             SET is_admin = 1 - is_admin
+             WHERE id = :id'
+        );
+        $stmt->bindValue(':id', $userId, SQLITE3_INTEGER);
+        $stmt->execute();
+    }
+
+    /** Delete a user by ID. */
+    public static function deleteUser(SQLite3 $db, int $userId): void
+    {
+        $stmt = $db->prepare('DELETE FROM users WHERE id = :id');
+        $stmt->bindValue(':id', $userId, SQLITE3_INTEGER);
+        $stmt->execute();
+    }
+
+    /**
+     * Return all users for the admin UI (no password hashes).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function getAllUsers(SQLite3 $db): array
+    {
+        $res = $db->query('SELECT id, username, is_admin FROM users ORDER BY username');
+        $users = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $users[] = $row;
+        }
+        return $users;
+    }
+
+    /** Create a list and return its ID. */
+    public static function createList(SQLite3 $db, string $name, int $creatorId): int
+    {
+        $stmt = $db->prepare('INSERT INTO lists (name, created_by) VALUES (:n, :uid)');
+        $stmt->bindValue(':n', $name, SQLITE3_TEXT);
+        $stmt->bindValue(':uid', $creatorId, SQLITE3_INTEGER);
+        $stmt->execute();
+        return (int)$db->lastInsertRowID();
+    }
+
+    /** Check if a list exists. */
+    public static function listExists(SQLite3 $db, int $listId): bool
+    {
+        $stmt = $db->prepare('SELECT 1 FROM lists WHERE id = :id LIMIT 1');
+        $stmt->bindValue(':id', $listId, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+        return (bool)$res->fetchArray(SQLITE3_ASSOC);
+    }
+
+    /** Rename a list. */
+    public static function renameList(SQLite3 $db, int $listId, string $newName): void
+    {
+        $stmt = $db->prepare('UPDATE lists SET name = :n WHERE id = :id');
+        $stmt->bindValue(':n', $newName, SQLITE3_TEXT);
+        $stmt->bindValue(':id', $listId, SQLITE3_INTEGER);
+        $stmt->execute();
+    }
+
+    /** Grant or update access for a user to a list. */
+    public static function addOrUpdateListAccess(SQLite3 $db, int $listId, int $userId, bool $canEdit): void
+    {
+        $stmt = $db->prepare(
+            'INSERT OR REPLACE INTO list_access (list_id, user_id, can_edit) VALUES (:lid, :uid, :ce)'
+        );
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        $stmt->bindValue(':ce', $canEdit ? 1 : 0, SQLITE3_INTEGER);
+        $stmt->execute();
+    }
+
+    /** Remove a user's access to a list. */
+    public static function removeListAccess(SQLite3 $db, int $listId, int $userId): void
+    {
+        $stmt = $db->prepare('DELETE FROM list_access WHERE list_id = :lid AND user_id = :uid');
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        $stmt->execute();
+    }
+
+    /** Delete all completed todos for a list. */
+    public static function clearCompletedTodos(SQLite3 $db, int $listId): void
+    {
+        $stmt = $db->prepare('DELETE FROM todos WHERE list_id = :lid AND is_done = 1');
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $stmt->execute();
+    }
+
+    /** Delete a list and all related rows (todos + access). */
+    public static function deleteListAndTodos(SQLite3 $db, int $listId): void
+    {
+        $stmt = $db->prepare('DELETE FROM todos WHERE list_id = :lid');
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $stmt->execute();
+
+        $stmt = $db->prepare('DELETE FROM list_access WHERE list_id = :lid');
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $stmt->execute();
+
+        $stmt = $db->prepare('DELETE FROM lists WHERE id = :lid');
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $stmt->execute();
+    }
+
+    /**
+     * Return all lists for the admin UI, including owner username.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public static function getAllListsWithOwners(SQLite3 $db): array
+    {
+        $res = $db->query(
+            'SELECT lists.id, lists.name, lists.created_by, lists.created_at, users.username AS owner_name
+             FROM lists
+             LEFT JOIN users ON users.id = lists.created_by
+             ORDER BY lists.name'
+        );
+
+        $lists = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $lists[] = $row;
+        }
+        return $lists;
+    }
+
+    /**
+     * Return access rows grouped by list ID.
+     *
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    public static function getListAccessByList(SQLite3 $db): array
+    {
+        $res = $db->query(
+            'SELECT list_access.list_id, list_access.user_id, list_access.can_edit, users.username
+             FROM list_access
+             JOIN users ON users.id = list_access.user_id
+             ORDER BY users.username'
+        );
+
+        $listAccess = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $lid = (int)$row['list_id'];
+            if (!isset($listAccess[$lid])) {
+                $listAccess[$lid] = [];
+            }
+            $listAccess[$lid][] = $row;
+        }
+        return $listAccess;
+    }
+
+    /**
+     * Return access rows grouped by list ID for a set of list IDs.
+     *
+     * @param array<int, int> $listIds
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    public static function getListAccessByListIds(SQLite3 $db, array $listIds): array
+    {
+        $listIds = array_values(array_unique(array_map('intval', $listIds)));
+        $listIds = array_values(array_filter($listIds, static fn(int $id): bool => $id > 0));
+        if (empty($listIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($listIds), '?'));
+        $stmt = $db->prepare(
+            'SELECT list_access.list_id, list_access.user_id, list_access.can_edit, users.username
+             FROM list_access
+             JOIN users ON users.id = list_access.user_id
+             WHERE list_access.list_id IN (' . $placeholders . ')
+             ORDER BY users.username'
+        );
+        foreach ($listIds as $i => $listId) {
+            $stmt->bindValue($i + 1, $listId, SQLITE3_INTEGER);
+        }
+        $res = $stmt->execute();
+
+        $listAccess = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $lid = (int)$row['list_id'];
+            if (!isset($listAccess[$lid])) {
+                $listAccess[$lid] = [];
+            }
+            $listAccess[$lid][] = $row;
+        }
+        return $listAccess;
+    }
+
+    /**
+     * Count todos for each list ID.
+     *
+     * @return array<int, int> Map: list_id => count
+     */
+    public static function countTodosByList(SQLite3 $db): array
+    {
+        $res = $db->query('SELECT list_id, COUNT(*) AS c FROM todos GROUP BY list_id');
+        $counts = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $counts[(int)$row['list_id']] = (int)$row['c'];
+        }
+        return $counts;
+    }
+
+    /**
+     * Count todos for a set of list IDs.
+     *
+     * @param array<int, int> $listIds
+     * @return array<int, int> Map: list_id => count
+     */
+    public static function countTodosByListIds(SQLite3 $db, array $listIds): array
+    {
+        $listIds = array_values(array_unique(array_map('intval', $listIds)));
+        $listIds = array_values(array_filter($listIds, static fn(int $id): bool => $id > 0));
+        if (empty($listIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($listIds), '?'));
+        $stmt = $db->prepare(
+            'SELECT list_id, COUNT(*) AS c
+             FROM todos
+             WHERE list_id IN (' . $placeholders . ')
+             GROUP BY list_id'
+        );
+        foreach ($listIds as $i => $listId) {
+            $stmt->bindValue($i + 1, $listId, SQLITE3_INTEGER);
+        }
+        $res = $stmt->execute();
+
+        $counts = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $counts[(int)$row['list_id']] = (int)$row['c'];
+        }
+        return $counts;
+    }
+
+    /**
+     * Convenience wrapper for everything the admin dashboard needs.
+     *
+     * @return array{users:array, lists:array, listAccess:array, listCounts:array}
+     */
+    public static function getAdminDashboardData(SQLite3 $db): array
+    {
+        return [
+            'users' => self::getAllUsers($db),
+            'lists' => self::getAllListsWithOwners($db),
+            'listAccess' => self::getListAccessByList($db),
+            'listCounts' => self::countTodosByList($db),
+        ];
+    }
+
+    // --- LOGIN ATTEMPTS (admin visibility) ---
+
+    private static function ensureLoginAttemptsTable(SQLite3 $db): void
+    {
+        $db->exec(
+            'CREATE TABLE IF NOT EXISTS login_attempts (
+                ip TEXT NOT NULL,
+                ts INTEGER NOT NULL
+            )'
+        );
+        $db->exec('CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_ts ON login_attempts(ip, ts)');
+    }
+
+    /**
+     * Return a per-IP summary of failed login attempts since `$sinceTs`.
+     *
+     * @return array<int, array{ip:string, c:int, last_ts:int}>
+     */
+    public static function getLoginAttemptsSummary(SQLite3 $db, int $sinceTs): array
+    {
+        self::ensureLoginAttemptsTable($db);
+
+        $stmt = $db->prepare(
+            'SELECT ip, COUNT(*) AS c, MAX(ts) AS last_ts
+             FROM login_attempts
+             WHERE ts >= :since
+             GROUP BY ip
+             ORDER BY last_ts DESC'
+        );
+        $stmt->bindValue(':since', $sinceTs, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+
+        $rows = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+
+    /**
+     * Return recent failed login attempts since `$sinceTs` (newest first).
+     *
+     * @return array<int, array{ip:string, ts:int}>
+     */
+    public static function getRecentLoginAttempts(SQLite3 $db, int $sinceTs, int $limit = 200): array
+    {
+        self::ensureLoginAttemptsTable($db);
+
+        $limit = max(1, min($limit, 1000));
+        $stmt = $db->prepare(
+            'SELECT ip, ts
+             FROM login_attempts
+             WHERE ts >= :since
+             ORDER BY ts DESC
+             LIMIT ' . $limit
+        );
+        $stmt->bindValue(':since', $sinceTs, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+
+        $rows = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+}

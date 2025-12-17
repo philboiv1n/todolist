@@ -1,0 +1,205 @@
+:root {
+    /* Brand orange */
+    --todo-accent: #fa6400;
+    --todo-accent-hover: #e95d00;
+    --todo-accent-active: #d95600;
+    /* Accent color for links/nav. */
+    --todo-accent-text: var(--todo-accent);
+    --todo-accent-text-hover: var(--todo-accent-hover);
+    --todo-accent-text-active: var(--todo-accent-active);
+    /* Text color on accent backgrounds (buttons, etc). */
+    --todo-on-accent: #ffffff;
+
+    --todo-danger: #dc2626;
+    --todo-danger-hover: #b91c1c;
+    --todo-danger-active: #991b1b;
+    --todo-radius-card: 14px;
+    --todo-radius-button: 10px;
+}
+
+/* Match UIkit's `uk-background-muted` for the full page canvas (UIkit defaults `html` to white). */
+html {
+    background: #f8f8f8;
+}
+
+.white-bg {
+    background: #fff;
+}
+
+/* Rounded corners */
+.uk-card {
+    border-radius: var(--todo-radius-card);
+    overflow: hidden;
+}
+
+/* Accent border (used for the "Add task" card). */
+.todo-accent-border {
+    position: relative;
+}
+.todo-accent-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--todo-accent);
+    border-radius: inherit;
+    pointer-events: none;
+}
+.uk-button {
+    border-radius: var(--todo-radius-button);
+}
+
+/* Links */
+.uk-link,
+a {
+    color: var(--todo-accent-text);
+}
+.uk-link:hover,
+a:hover {
+    color: var(--todo-accent-text-hover);
+}
+.uk-link:active,
+a:active {
+    color: var(--todo-accent-text-active);
+}
+
+/* Don't rely on color alone for links (WCAG 1.4.1). */
+a:not(.uk-button):not(.uk-link-reset) {
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+}
+
+/* Text contrast */
+.todo-item-title {
+    color: #333;
+}
+.todo-item-title-done {
+    text-decoration: line-through;
+    color: #666;
+}
+
+/* Make UIkit "muted/meta" text readable on light backgrounds. */
+.uk-text-meta {
+    color: #666;
+}
+.uk-text-muted {
+    color: #666 !important;
+}
+
+/* UIkit defaults for code/alerts use low-contrast colors; override for readability. */
+:not(pre) > code,
+:not(pre) > kbd,
+:not(pre) > samp {
+    color: #333;
+}
+.uk-alert-danger,
+.uk-alert-success,
+.uk-alert-warning,
+.uk-alert-primary {
+    color: #333;
+}
+
+/* Small "X" action buttons (e.g., remove access). */
+.todo-action-x {
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+/* Header button icon alignment */
+.todo-nav-icon {
+    margin-left: 0.45em;
+    position: relative;
+    top: -1px;
+}
+
+/* Primary buttons */
+.uk-button-primary {
+    background-color: var(--todo-accent);
+    border-color: var(--todo-accent);
+    color: var(--todo-on-accent);
+    font-weight: 700;
+}
+.uk-button-primary:hover,
+.uk-button-primary:focus {
+    background-color: var(--todo-accent-hover);
+    border-color: var(--todo-accent-hover);
+    color: var(--todo-on-accent);
+}
+.uk-button-primary:active,
+.uk-button-primary.uk-active {
+    background-color: var(--todo-accent-active);
+    border-color: var(--todo-accent-active);
+    color: var(--todo-on-accent);
+}
+.uk-button-primary .todo-icon-bold {
+    color: #ffffff;
+}
+
+/* Danger buttons/text: UIkit defaults are too low-contrast for AA. */
+.uk-text-danger {
+    color: var(--todo-danger) !important;
+}
+.uk-button-danger {
+    background-color: var(--todo-danger);
+    border-color: var(--todo-danger);
+    color: #ffffff;
+}
+.uk-button-danger:hover,
+.uk-button-danger:focus {
+    background-color: var(--todo-danger-hover);
+    border-color: var(--todo-danger-hover);
+    color: #ffffff;
+}
+.uk-button-danger:active,
+.uk-button-danger.uk-active {
+    background-color: var(--todo-danger-active);
+    border-color: var(--todo-danger-active);
+    color: #ffffff;
+}
+
+/* Success label text should be dark for contrast. */
+.uk-label-success {
+    color: #111111;
+}
+
+/* Inputs */
+.uk-input:focus,
+.uk-select:focus,
+.uk-textarea:focus {
+    border-color: var(--todo-accent);
+}
+
+/* Checkboxes & radios */
+.uk-checkbox:focus,
+.uk-radio:focus {
+    border-color: var(--todo-accent);
+}
+.uk-checkbox:checked,
+.uk-checkbox:indeterminate,
+.uk-radio:checked {
+    background-color: var(--todo-accent);
+    border-color: var(--todo-accent);
+}
+.uk-checkbox:checked:focus,
+.uk-checkbox:indeterminate:focus,
+.uk-radio:checked:focus {
+    background-color: var(--todo-accent-hover);
+    border-color: var(--todo-accent-hover);
+}
+
+/* Make some UIkit icons visually heavier (UIkit icons are inline SVG). */
+
+.todo-icon-bold svg rect:first-child {
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scaleX(3);
+}
+.todo-icon-bold svg rect:last-child {
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scaleY(3);
+}
+
+/* For stroke-based icons */
+.todo-icon-bold svg [stroke] {
+    stroke-width: 2.2;
+}
