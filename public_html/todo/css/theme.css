@@ -203,3 +203,13 @@ a:not(.uk-button):not(.uk-link-reset) {
 .todo-icon-bold svg [stroke] {
     stroke-width: 2.2;
 }
+
+/* Force a clean line break in the "Add task" grid for widths 640–959px. */
+.todo-grid-break {
+    flex-basis: 100%;
+    width: 100%;
+    height: 0;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden;
+}

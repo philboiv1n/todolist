@@ -1,6 +1,6 @@
 # To-do List
 
-Simple multi-user to-do list built with plain PHP and SQLite. Users get personal lists, admins can create shared lists and grant view/edit access. Interface is responsive for mobile devices.
+Simple multi-user to-do list built with plain PHP and SQLite. Users get personal lists, admins can create shared lists and grant view/edit access, and tasks can optionally repeat. Interface is responsive for mobile devices.
 
 ## Requirements
 - PHP 8.1+ with the SQLite3 extension enabled.
@@ -21,6 +21,8 @@ Simple multi-user to-do list built with plain PHP and SQLite. Users get personal
 
 ## Using the app
 - Main page: log in, add tasks with optional due dates, mark them done, or delete them (when you have edit access).
+- Tasks can optionally repeat (daily/weekly/weekdays/monthly/yearly).
+- Completing a repeating task automatically creates the next occurrence (and unchecking it removes the auto-generated next one if it’s still pending).
 - Settings page (`/settings.php`): change your password, create/rename/delete your own lists, clear completed tasks, and share lists with other users.
 - Admin page (`/admin.php`): create users, toggle admin status, reset passwords, create lists, grant/revoke access (view or edit), clear completed tasks, or delete lists and users.
 - Login attempts page (`/admin_attempts.php`): view recent failed login attempts (admin only).
@@ -34,6 +36,7 @@ Simple multi-user to-do list built with plain PHP and SQLite. Users get personal
 - `public_html/todo` — web root (entry points, views).
 - `private_todo/app/bootstrap.php` — shared bootstrap (session/cookie settings, DB, helpers).
 - `private_todo/app/src` — PHP classes (controllers, Query, Security, View).
+- `private_todo/app/src/Recurrence.php` — recurrence rule parsing/scheduling helpers.
 - `public_html/todo/views` — templates and partials (included by PHP, not meant to be served directly).
 - `private_todo` — SQLite database (`todo.sqlite`), migrations, and session storage.
 

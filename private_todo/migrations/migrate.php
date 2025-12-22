@@ -63,6 +63,8 @@ function ensure_list_schema(SQLite3 $db): void {
             list_id INTEGER,
             title TEXT NOT NULL,
             due_date TEXT,
+            repeat_rule TEXT,
+            repeat_source_id INTEGER,
             is_done INTEGER NOT NULL DEFAULT 0,
             is_shared INTEGER NOT NULL DEFAULT 0,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -78,6 +80,14 @@ function ensure_list_schema(SQLite3 $db): void {
     if (!column_exists($db, 'todos', 'due_date')) {
         echo "Adding column 'due_date' to 'todos' table.\n";
         $db->exec('ALTER TABLE todos ADD COLUMN due_date TEXT');
+    }
+    if (!column_exists($db, 'todos', 'repeat_rule')) {
+        echo "Adding column 'repeat_rule' to 'todos' table.\n";
+        $db->exec('ALTER TABLE todos ADD COLUMN repeat_rule TEXT');
+    }
+    if (!column_exists($db, 'todos', 'repeat_source_id')) {
+        echo "Adding column 'repeat_source_id' to 'todos' table.\n";
+        $db->exec('ALTER TABLE todos ADD COLUMN repeat_source_id INTEGER');
     }
     if (!column_exists($db, 'users', 'is_admin')) {
         echo "Adding column 'is_admin' to 'users' table.\n";
@@ -241,6 +251,7 @@ function ensure_indexes(SQLite3 $db): void {
 
     // Speeds up: todo fetches and counts by list_id
     $db->exec('CREATE INDEX IF NOT EXISTS idx_todos_list_id ON todos(list_id)');
+    $db->exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_todos_repeat_source_id ON todos(repeat_source_id)');
 
     // Speeds up: login rate-limiting lookups (ip + time window)
     $db->exec('CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_ts ON login_attempts(ip, ts)');

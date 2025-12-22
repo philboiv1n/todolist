@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
     <link rel="stylesheet" href="css/uikit.min.css">
-    <link rel="stylesheet" href="css/theme.css?123">
+    <link rel="stylesheet" href="css/theme.css">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
@@ -17,6 +17,7 @@
 $csrf = \TodoApp\Security::h($csrfToken);
 $today = date('Y-m-d');
 $username = (string)($currentUsername ?? '');
+$supportsRecurrence = !empty($supportsRecurrence);
 $logoutHref = 'index.php?logout=1';
 $refreshHref = 'index.php';
 $mainClass = $currentUserId
@@ -109,10 +110,29 @@ $editableLists = array_values(array_filter(
                                     </div>
                                 </div>
 
+                                <div class="todo-grid-break uk-visible@s uk-hidden@m" aria-hidden="true"></div>
+
                                 <div class="uk-width-auto@s">
                                     <label class="uk-form-label" for="new-due-date">Due date</label>
                                     <div class="uk-form-controls">
                                         <input id="new-due-date" class="uk-input" type="date" name="due_date" value="<?php echo \TodoApp\Security::h($today); ?>">
+                                    </div>
+                                </div>
+
+                                <div class="uk-width-auto@s">
+                                    <label class="uk-form-label" for="new-repeat">Repeat</label>
+                                    <div class="uk-form-controls">
+                                        <select id="new-repeat" class="uk-select" name="repeat" <?php echo $supportsRecurrence ? '' : 'disabled'; ?>>
+                                            <option value="none">No</option>
+                                            <option value="daily">Every day</option>
+                                            <option value="weekdays">Every weekday</option>
+                                            <option value="weekly">Every week</option>
+                                            <option value="monthly">Every month</option>
+                                            <option value="yearly">Every year</option>
+                                        </select>
+                                        <?php if (!$supportsRecurrence): ?>
+                                            <div class="uk-text-meta">Run the migration to enable repeating tasks.</div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
 

@@ -12,6 +12,8 @@ use SQLite3;
  */
 class Query
 {
+    /** @var ?array<string, bool> */
+    private static ?array $todosColumnCache = null;
 
     // --- USERS ---
 
@@ -179,13 +181,37 @@ class Query
      *
      * `$dueDate` is stored as an ISO date string (`YYYY-MM-DD`) or NULL.
      */
-    public static function createTodo(SQLite3 $db, int $userId, int $listId, string $title, ?string $dueDate = null): int
+    public static function createTodo(
+        SQLite3 $db,
+        ?int $userId,
+        int $listId,
+        string $title,
+        ?string $dueDate = null,
+        ?string $repeatRule = null,
+        ?int $repeatSourceId = null
+    ): int
     {
+        $columns = self::getTodosColumns($db);
+        $insertCols = ['user_id', 'list_id', 'title', 'due_date'];
+        $insertVals = [':uid', ':lid', ':title', ':due_date'];
+        if (isset($columns['repeat_rule'])) {
+            $insertCols[] = 'repeat_rule';
+            $insertVals[] = ':repeat_rule';
+        }
+        if (isset($columns['repeat_source_id'])) {
+            $insertCols[] = 'repeat_source_id';
+            $insertVals[] = ':repeat_source_id';
+        }
+
         $stmt = $db->prepare(
-            "INSERT INTO todos (user_id, list_id, title, due_date)
-             VALUES (:uid, :lid, :title, :due_date)"
+            "INSERT INTO todos (" . implode(', ', $insertCols) . ")
+             VALUES (" . implode(', ', $insertVals) . ")"
         );
-        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        if ($userId === null) {
+            $stmt->bindValue(':uid', null, SQLITE3_NULL);
+        } else {
+            $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        }
         $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
         $stmt->bindValue(':title', $title, SQLITE3_TEXT);
 
@@ -193,6 +219,21 @@ class Query
             $stmt->bindValue(':due_date', null, SQLITE3_NULL);
         } else {
             $stmt->bindValue(':due_date', $dueDate, SQLITE3_TEXT);
+        }
+
+        if (isset($columns['repeat_rule'])) {
+            if ($repeatRule === null || $repeatRule === '') {
+                $stmt->bindValue(':repeat_rule', null, SQLITE3_NULL);
+            } else {
+                $stmt->bindValue(':repeat_rule', $repeatRule, SQLITE3_TEXT);
+            }
+        }
+        if (isset($columns['repeat_source_id'])) {
+            if ($repeatSourceId === null || $repeatSourceId <= 0) {
+                $stmt->bindValue(':repeat_source_id', null, SQLITE3_NULL);
+            } else {
+                $stmt->bindValue(':repeat_source_id', $repeatSourceId, SQLITE3_INTEGER);
+            }
         }
 
         $stmt->execute();
@@ -209,6 +250,125 @@ class Query
         );
         $stmt->bindValue(':id', $todoId, SQLITE3_INTEGER);
         $stmt->execute();
+    }
+
+    /**
+     * Toggle `is_done` and, if the todo has a recurrence rule, create/remove the next occurrence.
+     *
+     * The provided `$todo` row should come from `fetchAccessibleTodo()` (it includes `todos.*`).
+     *
+     * @param array<string, mixed> $todo
+     */
+    public static function toggleTodoDoneWithRecurrence(SQLite3 $db, array $todo, ?int $actingUserId = null): void
+    {
+        $todoId = (int)($todo['id'] ?? 0);
+        if ($todoId <= 0) {
+            return;
+        }
+
+        $columns = self::getTodosColumns($db);
+        $supportsRecurrence = isset($columns['repeat_rule'], $columns['repeat_source_id']);
+
+        $wasDone = !empty($todo['is_done']);
+        $markDone = !$wasDone;
+
+        $stmt = $db->prepare('UPDATE todos SET is_done = :done WHERE id = :id');
+        $stmt->bindValue(':done', $markDone ? 1 : 0, SQLITE3_INTEGER);
+        $stmt->bindValue(':id', $todoId, SQLITE3_INTEGER);
+
+        // Keep the toggle + any recurrence inserts/deletes atomic to avoid duplicates.
+        $db->exec('BEGIN IMMEDIATE');
+        try {
+            $stmt->execute();
+
+            if (!$supportsRecurrence) {
+                $db->exec('COMMIT');
+                return;
+            }
+
+            $repeatRule = $todo['repeat_rule'] ?? null;
+            $repeatRule = is_string($repeatRule) ? trim($repeatRule) : '';
+            if ($repeatRule === '') {
+                $db->exec('COMMIT');
+                return;
+            }
+
+            if ($markDone) {
+                // Only create a next occurrence once for this completion.
+                $stmt = $db->prepare('SELECT id FROM todos WHERE repeat_source_id = :src LIMIT 1');
+                $stmt->bindValue(':src', $todoId, SQLITE3_INTEGER);
+                $res = $stmt->execute();
+                $existing = $res->fetchArray(SQLITE3_ASSOC);
+                if ($existing) {
+                    $db->exec('COMMIT');
+                    return;
+                }
+
+                $title = (string)($todo['title'] ?? '');
+                $listId = (int)($todo['list_id'] ?? 0);
+                if ($title === '' || $listId <= 0) {
+                    $db->exec('COMMIT');
+                    return;
+                }
+
+                $dueDate = $todo['due_date'] ?? null;
+                $dueDate = is_string($dueDate) ? $dueDate : null;
+
+                $nextDue = Recurrence::nextDueDate($dueDate, $repeatRule);
+                if ($nextDue === null) {
+                    $db->exec('COMMIT');
+                    return;
+                }
+
+                $creatorId = $todo['user_id'] ?? null;
+                $creatorId = is_int($creatorId) ? $creatorId : (is_string($creatorId) && ctype_digit($creatorId) ? (int)$creatorId : null);
+                if ($creatorId === null) {
+                    $creatorId = $actingUserId;
+                }
+
+                self::createTodo($db, $creatorId, $listId, $title, $nextDue, $repeatRule, $todoId);
+                $db->exec('COMMIT');
+                return;
+            }
+
+            // Un-done: remove the auto-generated next occurrence (if it still exists and isn't completed).
+            $stmt = $db->prepare('DELETE FROM todos WHERE repeat_source_id = :src AND is_done = 0');
+            $stmt->bindValue(':src', $todoId, SQLITE3_INTEGER);
+            $stmt->execute();
+
+            $db->exec('COMMIT');
+        } catch (\Throwable $e) {
+            $db->exec('ROLLBACK');
+            throw $e;
+        }
+    }
+
+    public static function todosSupportRecurrence(SQLite3 $db): bool
+    {
+        $columns = self::getTodosColumns($db);
+        return isset($columns['repeat_rule'], $columns['repeat_source_id']);
+    }
+
+    /**
+     * @return array<string, bool> Map: column name => true
+     */
+    private static function getTodosColumns(SQLite3 $db): array
+    {
+        if (self::$todosColumnCache !== null) {
+            return self::$todosColumnCache;
+        }
+
+        $cols = [];
+        $res = $db->query('PRAGMA table_info(todos)');
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $name = $row['name'] ?? null;
+            if (is_string($name) && $name !== '') {
+                $cols[$name] = true;
+            }
+        }
+
+        self::$todosColumnCache = $cols;
+        return $cols;
     }
 
     /** Delete a todo by ID. */

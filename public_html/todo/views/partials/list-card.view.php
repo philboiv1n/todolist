@@ -34,6 +34,14 @@ $todos = is_array($list['todos'] ?? null) ? $list['todos'] : [];
                             $todoTitle = \TodoApp\Security::h((string)($todo['title'] ?? ''));
                             $isDone = !empty($todo['is_done']);
                             $dueDate = !empty($todo['due_date']) ? \TodoApp\Security::h((string)$todo['due_date']) : null;
+                            $repeatLabel = null;
+                            $repeatRule = $todo['repeat_rule'] ?? null;
+                            if (is_string($repeatRule) && trim($repeatRule) !== '') {
+                                $repeatLabel = \TodoApp\Recurrence::describe($repeatRule);
+                                if ($repeatLabel !== null) {
+                                    $repeatLabel = \TodoApp\Security::h($repeatLabel);
+                                }
+                            }
                             ?>
                             <li>
                                 <?php if ($canEdit): ?>
@@ -58,6 +66,11 @@ $todos = is_array($list['todos'] ?? null) ? $list['todos'] : [];
 	                                                <?php if ($dueDate): ?>
 	                                                    <span id="due-<?php echo $todoId; ?>" class="todo-item-due uk-text-meta uk-display-block">
 	                                                        Due: <?php echo $dueDate; ?>
+	                                                    </span>
+	                                                <?php endif; ?>
+	                                                <?php if ($repeatLabel): ?>
+	                                                    <span class="todo-item-repeat uk-text-meta uk-display-block">
+	                                                        Repeats: <?php echo $repeatLabel; ?>
 	                                                    </span>
 	                                                <?php endif; ?>
 
@@ -87,6 +100,11 @@ $todos = is_array($list['todos'] ?? null) ? $list['todos'] : [];
 	                                            <label for="todo-<?php echo $todoId; ?>" class="todo-item-title uk-text-break<?php echo $isDone ? ' todo-item-title-done' : ''; ?>"><?php echo $todoTitle; ?></label>
 	                                            <?php if ($dueDate): ?>
 	                                                <span class="todo-item-due uk-text-meta uk-display-block">Due: <?php echo $dueDate; ?></span>
+	                                            <?php endif; ?>
+	                                            <?php if ($repeatLabel): ?>
+	                                                <span class="todo-item-repeat uk-text-meta uk-display-block">
+	                                                    Repeats: <?php echo $repeatLabel; ?>
+	                                                </span>
 	                                            <?php endif; ?>
 	                                        </div>
 	                                    </div>

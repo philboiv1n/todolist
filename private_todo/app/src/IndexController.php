@@ -55,6 +55,7 @@ class IndexController
             'csrfToken' => $csrfToken,
             'userLists' => $userLists,
             'currentUser' => $this->currentUser,
+            'supportsRecurrence' => Query::todosSupportRecurrence($this->db),
         ];
     }
 
@@ -201,6 +202,7 @@ class IndexController
     {
         $title = trim($_POST['title'] ?? '');
         $dueDate = trim($_POST['due_date'] ?? '');
+        $repeat = trim($_POST['repeat'] ?? '');
         $listId = (int)($_POST['list_id'] ?? 0);
 
         if ($title === '' || $listId <= 0) {
@@ -210,7 +212,8 @@ class IndexController
             return null;
         }
 
-        Query::createTodo($this->db, $this->currentUserId, $listId, $title, $dueDate);
+        $repeatRule = Recurrence::buildRuleFromPreset($repeat, $dueDate);
+        Query::createTodo($this->db, $this->currentUserId, $listId, $title, $dueDate, $repeatRule);
         return $listId;
     }
 
@@ -226,7 +229,7 @@ class IndexController
             return null;
         }
 
-        Query::toggleTodoDone($this->db, $id);
+        Query::toggleTodoDoneWithRecurrence($this->db, $todo, $this->currentUserId);
         $listId = (int)($todo['list_id'] ?? 0);
         return $listId > 0 ? $listId : null;
     }
