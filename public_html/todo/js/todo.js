@@ -26,6 +26,82 @@
         }
     }
 
+    function todoIdFromCheckboxId(id) {
+        if (typeof id !== 'string' || !id.startsWith('todo-')) {
+            return null;
+        }
+        const v = Number.parseInt(id.slice(5), 10);
+        return Number.isFinite(v) ? v : null;
+    }
+
+    function getTodoIds(listRootEl) {
+        if (!listRootEl) {
+            return [];
+        }
+        const ids = [];
+        const inputs = listRootEl.querySelectorAll('input[id^="todo-"]');
+        for (const input of inputs) {
+            const id = todoIdFromCheckboxId(input.id);
+            if (id !== null) {
+                ids.push(id);
+            }
+        }
+        return ids;
+    }
+
+    function findTodoListItem(listRootEl, todoId) {
+        if (!listRootEl || todoId === null || todoId === undefined || todoId === '') {
+            return null;
+        }
+        const checkbox = listRootEl.querySelector(`#todo-${todoId}`);
+        return checkbox ? checkbox.closest('li') : null;
+    }
+
+    // For toggle actions, keep the todo in the same visual position (avoid resorting),
+    // while still reflecting any server-side recurrence inserts/deletes.
+    function applyToggleUpdatePreservingOrder(currentList, replacementList, todoId) {
+        const currentUl = currentList.querySelector('ul.uk-list');
+        const replacementUl = replacementList.querySelector('ul.uk-list');
+        if (!currentUl || !replacementUl) {
+            return false;
+        }
+
+        const currentTodoLi = findTodoListItem(currentList, todoId);
+        const replacementTodoLi = findTodoListItem(replacementList, todoId);
+        if (!currentTodoLi || !replacementTodoLi) {
+            return false;
+        }
+
+        const currentIds = getTodoIds(currentList);
+        const replacementIds = getTodoIds(replacementList);
+        const currentSet = new Set(currentIds);
+        const replacementSet = new Set(replacementIds);
+
+        const removedIds = currentIds.filter((id) => !replacementSet.has(id));
+        const addedIds = replacementIds.filter((id) => !currentSet.has(id));
+
+        // Replace only the toggled <li> so it doesn't move within the list.
+        currentTodoLi.replaceWith(replacementTodoLi);
+
+        // Remove todos that disappeared (e.g. recurrence undo removed the next occurrence).
+        for (const id of removedIds) {
+            const li = findTodoListItem(currentList, id);
+            if (li) {
+                li.remove();
+            }
+        }
+
+        // Add any new todos created by the server (e.g. recurrence completion created the next occurrence).
+        for (const id of addedIds) {
+            const li = findTodoListItem(replacementList, id);
+            if (li) {
+                currentUl.appendChild(li);
+            }
+        }
+
+        return true;
+    }
+
     // Submit a form via `fetch()` and replace the affected list card with server-rendered HTML.
     async function submitAjaxForm(form) {
         // Prevent double-submits (e.g. fast clicks).
@@ -102,13 +178,20 @@
                 return;
             }
 
-            if (current) {
-                current.replaceWith(replacement);
-            } else {
-                // If the list wasn't found in the DOM (unexpected), append it.
-                const container = document.getElementById('lists');
-                if (container) {
-                    container.appendChild(replacement);
+            let didReplace = false;
+            if (action === 'toggle' && todoId && current) {
+                didReplace = applyToggleUpdatePreservingOrder(current, replacement, todoId);
+            }
+
+            if (!didReplace) {
+                if (current) {
+                    current.replaceWith(replacement);
+                } else {
+                    // If the list wasn't found in the DOM (unexpected), append it.
+                    const container = document.getElementById('lists');
+                    if (container) {
+                        container.appendChild(replacement);
+                    }
                 }
             }
 

@@ -123,7 +123,7 @@ $editableLists = array_values(array_filter(
                                     <label class="uk-form-label" for="new-repeat">Repeat</label>
                                     <div class="uk-form-controls">
                                         <select id="new-repeat" class="uk-select" name="repeat" <?php echo $supportsRecurrence ? '' : 'disabled'; ?>>
-                                            <option value="none">No</option>
+                                            <option value="none">Never</option>
                                             <option value="daily">Every day</option>
                                             <option value="weekdays">Every weekday</option>
                                             <option value="weekly">Every week</option>
