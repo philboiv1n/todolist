@@ -6,6 +6,7 @@ $listId = (int)($list['id'] ?? 0);
 $canEdit = !empty($list['can_edit']);
 $listName = \TodoApp\Security::h((string)($list['name'] ?? ''));
 $todos = is_array($list['todos'] ?? null) ? $list['todos'] : [];
+$overdueCutoff = (new DateTimeImmutable('today'))->modify('-3 days');
 ?>
 
 <div data-list-id="<?php echo $listId; ?>">
@@ -33,7 +34,21 @@ $todos = is_array($list['todos'] ?? null) ? $list['todos'] : [];
                             $todoId = (int)($todo['id'] ?? 0);
                             $todoTitle = \TodoApp\Security::h((string)($todo['title'] ?? ''));
                             $isDone = !empty($todo['is_done']);
-                            $dueDate = !empty($todo['due_date']) ? \TodoApp\Security::h((string)$todo['due_date']) : null;
+                            $rawDueDate = $todo['due_date'] ?? null;
+                            $rawDueDate = is_string($rawDueDate) ? trim($rawDueDate) : '';
+                            $dueDate = $rawDueDate !== '' ? \TodoApp\Security::h($rawDueDate) : null;
+                            $isOverdue = false;
+                            if (!$isDone && $rawDueDate !== '') {
+                                $dateStr = substr($rawDueDate, 0, 10);
+                                if (preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $dateStr) === 1) {
+                                    try {
+                                        $dueDateObj = new DateTimeImmutable($dateStr);
+                                        $isOverdue = $dueDateObj < $overdueCutoff;
+                                    } catch (Throwable) {
+                                        $isOverdue = false;
+                                    }
+                                }
+                            }
                             $repeatLabel = null;
                             $repeatRule = $todo['repeat_rule'] ?? null;
                             if (is_string($repeatRule) && trim($repeatRule) !== '') {
@@ -65,7 +80,7 @@ $todos = is_array($list['todos'] ?? null) ? $list['todos'] : [];
 	                                                </label>
 	                                                <?php if ($dueDate): ?>
 	                                                    <span id="due-<?php echo $todoId; ?>" class="todo-item-due uk-text-meta uk-display-block">
-	                                                        Due: <?php echo $dueDate; ?>
+	                                                        Due: <?php echo $dueDate; ?><?php if ($isOverdue): ?> <span class="todo-nav-icon" uk-icon="icon: warning; ratio: 0.8" title="Overdue"></span><?php endif; ?>
 	                                                    </span>
 	                                                <?php endif; ?>
 	                                                <?php if ($repeatLabel): ?>
@@ -99,7 +114,7 @@ $todos = is_array($list['todos'] ?? null) ? $list['todos'] : [];
 	                                        <div class="uk-flex-1 uk-margin-small-left">
 	                                            <label for="todo-<?php echo $todoId; ?>" class="todo-item-title uk-text-break<?php echo $isDone ? ' todo-item-title-done' : ''; ?>"><?php echo $todoTitle; ?></label>
 	                                            <?php if ($dueDate): ?>
-	                                                <span class="todo-item-due uk-text-meta uk-display-block">Due: <?php echo $dueDate; ?></span>
+	                                                <span class="todo-item-due uk-text-meta uk-display-block">Due: <?php echo $dueDate; ?><?php if ($isOverdue): ?> <span class="todo-nav-icon" uk-icon="icon: warning; ratio: 0.8" title="Overdue"></span><?php endif; ?></span>
 	                                            <?php endif; ?>
 	                                            <?php if ($repeatLabel): ?>
 	                                                <span class="todo-item-repeat uk-text-meta uk-display-block">
