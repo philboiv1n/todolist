@@ -36,13 +36,13 @@ $overdueCutoff = (new DateTimeImmutable('today'))->modify('-3 days');
                             $isDone = !empty($todo['is_done']);
                             $rawDueDate = $todo['due_date'] ?? null;
                             $rawDueDate = is_string($rawDueDate) ? trim($rawDueDate) : '';
-                            $dueDate = $rawDueDate !== '' ? \TodoApp\Security::h($rawDueDate) : null;
+                            $dueDateInputValue = $rawDueDate !== '' ? substr($rawDueDate, 0, 10) : '';
+                            $dueDate = $dueDateInputValue !== '' ? \TodoApp\Security::h($dueDateInputValue) : null;
                             $isOverdue = false;
-                            if (!$isDone && $rawDueDate !== '') {
-                                $dateStr = substr($rawDueDate, 0, 10);
-                                if (preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $dateStr) === 1) {
+                            if (!$isDone && $dueDateInputValue !== '') {
+                                if (preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $dueDateInputValue) === 1) {
                                     try {
-                                        $dueDateObj = new DateTimeImmutable($dateStr);
+                                        $dueDateObj = new DateTimeImmutable($dueDateInputValue);
                                         $isOverdue = $dueDateObj < $overdueCutoff;
                                     } catch (Throwable) {
                                         $isOverdue = false;
@@ -61,13 +61,20 @@ $overdueCutoff = (new DateTimeImmutable('today'))->modify('-3 days');
                             <li>
                                 <?php if ($canEdit): ?>
                                     <div class="uk-flex uk-flex-between uk-flex-top uk-flex-wrap">
-                                        <form method="post" action="index.php" class="uk-flex uk-flex-top uk-width-expand uk-margin-remove" data-ajax="1">
-                                            <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
-                                            <input type="hidden" name="action" value="toggle">
-                                            <input type="hidden" name="id" value="<?php echo $todoId; ?>">
+                                        <div class="uk-flex uk-flex-top uk-width-expand">
+                                            <form id="toggle-<?php echo $todoId; ?>" method="post" action="index.php" class="uk-margin-remove" data-ajax="1">
+                                                <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
+                                                <input type="hidden" name="action" value="toggle">
+                                                <input type="hidden" name="id" value="<?php echo $todoId; ?>">
+
+                                                <noscript>
+                                                    <button type="submit" class="uk-button uk-button-default uk-button-small uk-margin-small-left">Update</button>
+                                                </noscript>
+                                            </form>
 
                                             <input
                                                 id="todo-<?php echo $todoId; ?>"
+                                                form="toggle-<?php echo $todoId; ?>"
                                                 class="uk-checkbox uk-flex-none uk-margin-xsmall-top"
                                                 type="checkbox"
                                                 onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"
@@ -78,22 +85,34 @@ $overdueCutoff = (new DateTimeImmutable('today'))->modify('-3 days');
 	                                                <label for="todo-<?php echo $todoId; ?>" class="todo-item-title uk-text-break<?php echo $isDone ? ' todo-item-title-done' : ''; ?>">
 	                                                    <?php echo $todoTitle; ?>
 	                                                </label>
-	                                                <?php if ($dueDate): ?>
+	                                                <form method="post" action="index.php" class="uk-margin-remove" data-ajax="1">
+	                                                    <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
+	                                                    <input type="hidden" name="action" value="update_due_date">
+	                                                    <input type="hidden" name="id" value="<?php echo $todoId; ?>">
 	                                                    <span id="due-<?php echo $todoId; ?>" class="todo-item-due uk-text-meta uk-display-block">
-	                                                        Due: <?php echo $dueDate; ?><?php if ($isOverdue): ?> <span class="todo-nav-icon" uk-icon="icon: warning; ratio: 0.8" title="Overdue"></span><?php endif; ?>
+	                                                        <input
+	                                                            id="todo-due-<?php echo $todoId; ?>"
+	                                                            class="todo-due-date-input uk-input uk-form-small uk-form-blank"
+	                                                            type="date"
+	                                                            name="due_date"
+	                                                            value="<?php echo \TodoApp\Security::h($dueDateInputValue); ?>"
+	                                                            aria-label="Due date"
+	                                                            onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"
+	                                                        >
+	                                                        <?php if ($isOverdue): ?> <span class="todo-nav-icon" uk-icon="icon: warning; ratio: 0.8" title="Overdue"></span><?php endif; ?>
 	                                                    </span>
-	                                                <?php endif; ?>
+
+	                                                    <noscript>
+	                                                        <button type="submit" class="uk-button uk-button-default uk-button-small uk-margin-small-left">Save date</button>
+	                                                    </noscript>
+	                                                </form>
 	                                                <?php if ($repeatLabel): ?>
 	                                                    <span class="todo-item-repeat uk-text-meta uk-display-block">
 	                                                        Repeats: <?php echo $repeatLabel; ?>
 	                                                    </span>
 	                                                <?php endif; ?>
-
-                                                <noscript>
-                                                    <button type="submit" class="uk-button uk-button-default uk-button-small uk-margin-small-left">Update</button>
-                                                </noscript>
                                             </div>
-                                        </form>
+                                        </div>
 
                                         <form method="post" action="index.php" class="uk-flex-none uk-margin-remove" data-ajax="1">
                                             <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">

@@ -77,6 +77,19 @@ a:not(.uk-button):not(.uk-link-reset) {
     color: #666;
 }
 
+.todo-due-date-input {
+    display: inline-block;
+    width: auto;
+    padding-left: 0;
+    padding-right: 0;
+    cursor: pointer;
+    border: 1px solid #e5e5e5;
+}
+.todo-due-date-input:focus-visible {
+    outline: 2px dotted var(--todo-accent);
+    outline-offset: 2px;
+}
+
 /* Make UIkit "muted/meta" text readable on light backgrounds. */
 .uk-text-meta {
     color: #666;

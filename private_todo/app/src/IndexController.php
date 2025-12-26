@@ -125,6 +125,8 @@ class IndexController
             $affectedListId = $this->handleToggleTodo();
         } elseif ($action === 'delete') {
             $affectedListId = $this->handleDeleteTodo();
+        } elseif ($action === 'update_due_date') {
+            $affectedListId = $this->handleUpdateDueDate();
         }
 
         if ($wantsJson) {
@@ -247,6 +249,41 @@ class IndexController
         }
 
         Query::deleteTodo($this->db, $id);
+        $listId = (int)($todo['list_id'] ?? 0);
+        return $listId > 0 ? $listId : null;
+    }
+
+    private function handleUpdateDueDate(): ?int
+    {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id <= 0) {
+            return null;
+        }
+
+        $todo = Query::fetchAccessibleTodo($this->db, $this->currentUserId, $id);
+        if (!$todo) {
+            return null;
+        }
+
+        $rawDueDate = trim((string)($_POST['due_date'] ?? ''));
+        if ($rawDueDate === '') {
+            $dueDate = null;
+        } else {
+            $dateStr = substr($rawDueDate, 0, 10);
+            if (preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $dateStr) !== 1) {
+                return null;
+            }
+
+            $dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $dateStr);
+            $errors = \DateTimeImmutable::getLastErrors();
+            if (!$dt || ($errors && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+                return null;
+            }
+
+            $dueDate = $dt->format('Y-m-d');
+        }
+
+        Query::updateTodoDueDate($this->db, $id, $dueDate);
         $listId = (int)($todo['list_id'] ?? 0);
         return $listId > 0 ? $listId : null;
     }

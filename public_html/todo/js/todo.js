@@ -57,9 +57,9 @@
         return checkbox ? checkbox.closest('li') : null;
     }
 
-    // For toggle actions, keep the todo in the same visual position (avoid resorting),
-    // while still reflecting any server-side recurrence inserts/deletes.
-    function applyToggleUpdatePreservingOrder(currentList, replacementList, todoId) {
+    // Keep the todo in the same visual position (avoid resorting),
+    // while still reflecting any server-side inserts/deletes.
+    function applyTodoUpdatePreservingOrder(currentList, replacementList, todoId) {
         const currentUl = currentList.querySelector('ul.uk-list');
         const replacementUl = replacementList.querySelector('ul.uk-list');
         if (!currentUl || !replacementUl) {
@@ -119,7 +119,7 @@
         const formData = new FormData(form);
         const action = formData.get('action');
         const listId = formData.get('list_id');
-        const todoId = action === 'toggle' ? formData.get('id') : null;
+        const todoId = formData.get('id');
 
         // Mark the list card as busy for assistive tech (and potential styling).
         const listEl = form.closest('[data-list-id]');
@@ -179,8 +179,8 @@
             }
 
             let didReplace = false;
-            if (action === 'toggle' && todoId && current) {
-                didReplace = applyToggleUpdatePreservingOrder(current, replacement, todoId);
+            if ((action === 'toggle' || action === 'update_due_date') && todoId && current) {
+                didReplace = applyTodoUpdatePreservingOrder(current, replacement, todoId);
             }
 
             if (!didReplace) {
@@ -213,6 +213,11 @@
                 const checkbox = document.getElementById(`todo-${todoId}`);
                 if (checkbox) {
                     checkbox.focus();
+                }
+            } else if (action === 'update_due_date' && todoId) {
+                const input = document.getElementById(`todo-due-${todoId}`);
+                if (input) {
+                    input.focus();
                 }
             }
         } catch (err) {

@@ -240,6 +240,19 @@ class Query
         return (int)$db->lastInsertRowID();
     }
 
+    /** Update a todo due date (`due_date`) by ID. */
+    public static function updateTodoDueDate(SQLite3 $db, int $todoId, ?string $dueDate): void
+    {
+        $stmt = $db->prepare('UPDATE todos SET due_date = :due_date WHERE id = :id');
+        if ($dueDate === null || $dueDate === '') {
+            $stmt->bindValue(':due_date', null, SQLITE3_NULL);
+        } else {
+            $stmt->bindValue(':due_date', $dueDate, SQLITE3_TEXT);
+        }
+        $stmt->bindValue(':id', $todoId, SQLITE3_INTEGER);
+        $stmt->execute();
+    }
+
     /** Toggle a todo's done flag (`is_done`). */
     public static function toggleTodoDone(SQLite3 $db, int $todoId): void
     {
