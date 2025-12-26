@@ -80,10 +80,12 @@ a:not(.uk-button):not(.uk-link-reset) {
 .todo-due-date-input {
     display: inline-block;
     width: auto;
-    padding-left: 0;
-    padding-right: 0;
+    max-width: 100%;
     cursor: pointer;
-    border: 1px solid #e5e5e5;
+    line-height: 28px;
+}
+.todo-due-date-input::-webkit-date-and-time-value {
+    line-height: 28px;
 }
 .todo-due-date-input:focus-visible {
     outline: 2px dotted var(--todo-accent);

@@ -90,13 +90,13 @@ $overdueCutoff = (new DateTimeImmutable('today'))->modify('-3 days');
 	                                                    <input type="hidden" name="action" value="update_due_date">
 	                                                    <input type="hidden" name="id" value="<?php echo $todoId; ?>">
 	                                                    <span id="due-<?php echo $todoId; ?>" class="todo-item-due uk-text-meta uk-display-block">
-	                                                        <input
-	                                                            id="todo-due-<?php echo $todoId; ?>"
-	                                                            class="todo-due-date-input uk-input uk-form-small uk-form-blank"
-	                                                            type="date"
-	                                                            name="due_date"
-	                                                            value="<?php echo \TodoApp\Security::h($dueDateInputValue); ?>"
-	                                                            aria-label="Due date"
+		                                                        <input
+		                                                            id="todo-due-<?php echo $todoId; ?>"
+		                                                            class="todo-due-date-input uk-input uk-form-small"
+		                                                            type="date"
+		                                                            name="due_date"
+		                                                            value="<?php echo \TodoApp\Security::h($dueDateInputValue); ?>"
+		                                                            aria-label="Due date"
 	                                                            onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"
 	                                                        >
 	                                                        <?php if ($isOverdue): ?> <span class="todo-nav-icon" uk-icon="icon: warning; ratio: 0.8" title="Overdue"></span><?php endif; ?>
