@@ -36,6 +36,7 @@ require __DIR__ . '/partials/layout/header.view.php';
 
 <main id="main" class="uk-section uk-section-small uk-padding-remove-top">
     <div class="uk-container">
+        <h1 class="uk-h3 uk-margin-small-top">Administration</h1>
         <?php if ($msg): ?>
             <div class="uk-alert uk-alert-success" role="status">
                 <p><?php echo \TodoApp\Security::h($msg); ?></p>

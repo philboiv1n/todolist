@@ -3,8 +3,8 @@
 /** @var bool $supportsListOrdering */
 /** @var array $orderedLists */
 ?>
-<section id="list-order" aria-labelledby="list-order-title">
-    <h3 id="list-order-title" class="uk-h4 uk-margin-small-bottom">List order</h3>
+<section id="list-order" aria-labelledby="list-order-title" class="uk-card uk-card-default uk-card-body">
+    <h2 id="list-order-title" class="uk-h4 uk-margin-small-bottom">List order</h2>
 
     <?php if (empty($supportsListOrdering)): ?>
         <div class="uk-alert uk-alert-warning" role="status">
@@ -15,7 +15,6 @@
     <?php else: ?>
         <p class="uk-text-meta uk-margin-small">
             Reorder how lists appear on the home page. Your personal list stays pinned at the top.
-            <hr>
         </p>
 
         <ul class="uk-list uk-list-divider uk-margin-small-top">
@@ -54,4 +53,3 @@
         </ul>
     <?php endif; ?>
 </section>
-

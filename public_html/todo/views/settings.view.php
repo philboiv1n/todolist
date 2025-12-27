@@ -36,6 +36,7 @@ require __DIR__ . '/partials/layout/header.view.php';
 
 <main id="main" class="uk-section uk-section-small uk-padding-remove-top">
     <div class="uk-container">
+        <h1 class="uk-h3 uk-margin-small-top">Settings</h1>
         <?php if ($msg): ?>
             <div class="uk-alert uk-alert-success" role="status">
                 <p><?php echo \TodoApp\Security::h($msg); ?></p>
@@ -49,7 +50,13 @@ require __DIR__ . '/partials/layout/header.view.php';
 
 	        <div class="uk-grid-small uk-child-width-1-1" uk-grid>
 	            <div>
-	                <?php require __DIR__ . '/partials/settings/lists-section.view.php'; ?>
+	                <?php require __DIR__ . '/partials/settings/create-list-section.view.php'; ?>
+	            </div>
+	            <div>
+	                <?php require __DIR__ . '/partials/settings/existing-lists-section.view.php'; ?>
+	            </div>
+	            <div>
+	                <?php require __DIR__ . '/partials/settings/list-order-section.view.php'; ?>
 	            </div>
 	            <div>
 	                <?php require __DIR__ . '/partials/settings/account-section.view.php'; ?>
