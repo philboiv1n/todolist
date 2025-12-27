@@ -13,7 +13,7 @@ class Recurrence
      * Supported forms:
      * - {"freq":"daily"}
      * - {"freq":"weekly","byweekday":[1..7]} (Mon=1..Sun=7)
-     * - {"freq":"monthly","bymonthday":1..31}
+     * - {"freq":"monthly","bymonthday":1..31,"interval"?:1..120}
      * - {"freq":"yearly","bymonth":1..12,"bymonthday":1..31}
      */
 
@@ -37,6 +37,9 @@ class Recurrence
         } elseif ($preset === 'monthly') {
             $day = (int)$date->format('j');
             $rule = ['freq' => 'monthly', 'bymonthday' => $day];
+        } elseif ($preset === 'quarterly') {
+            $day = (int)$date->format('j');
+            $rule = ['freq' => 'monthly', 'bymonthday' => $day, 'interval' => 3];
         } elseif ($preset === 'yearly') {
             $month = (int)$date->format('n');
             $day = (int)$date->format('j');
@@ -77,6 +80,15 @@ class Recurrence
 
         if ($rule['freq'] === 'monthly') {
             $day = $rule['bymonthday'] ?? null;
+            $interval = $rule['interval'] ?? 1;
+            $interval = is_int($interval) ? $interval : 1;
+
+            if ($interval > 1) {
+                if (is_int($day) && $day >= 1 && $day <= 31) {
+                    return "Every {$interval} months (day {$day})";
+                }
+                return "Every {$interval} months";
+            }
             if (is_int($day) && $day >= 1 && $day <= 31) {
                 return "Monthly (day {$day})";
             }
@@ -139,15 +151,37 @@ class Recurrence
                 $day = (int)$anchor->format('j');
             }
 
-            $year = (int)$anchor->format('Y');
-            $month = (int)$anchor->format('n');
-            for ($i = 0; $i < 24; $i++) {
-                $candidateYear = $year + intdiv(($month - 1 + $i), 12);
-                $candidateMonth = (($month - 1 + $i) % 12) + 1;
-                $candidate = self::safeDate($candidateYear, $candidateMonth, $day);
-                if ($candidate && $candidate > $anchor) {
-                    $next = $candidate;
-                    break;
+            $interval = $rule['interval'] ?? 1;
+            $interval = is_int($interval) ? $interval : 1;
+            if ($interval < 1) {
+                $interval = 1;
+            }
+
+            if ($interval === 1) {
+                $year = (int)$anchor->format('Y');
+                $month = (int)$anchor->format('n');
+                for ($i = 0; $i < 24; $i++) {
+                    $candidateYear = $year + intdiv(($month - 1 + $i), 12);
+                    $candidateMonth = (($month - 1 + $i) % 12) + 1;
+                    $candidate = self::safeDate($candidateYear, $candidateMonth, $day);
+                    if ($candidate && $candidate > $anchor) {
+                        $next = $candidate;
+                        break;
+                    }
+                }
+            } else {
+                $base = self::parseIsoDate($currentDueDate) ?? $anchor;
+                $year = (int)$base->format('Y');
+                $month = (int)$base->format('n');
+                for ($i = 1; $i <= 120; $i++) {
+                    $monthsToAdd = $interval * $i;
+                    $candidateYear = $year + intdiv(($month - 1 + $monthsToAdd), 12);
+                    $candidateMonth = (($month - 1 + $monthsToAdd) % 12) + 1;
+                    $candidate = self::safeDate($candidateYear, $candidateMonth, $day);
+                    if ($candidate && $candidate > $anchor) {
+                        $next = $candidate;
+                        break;
+                    }
                 }
             }
         } elseif ($rule['freq'] === 'yearly') {
@@ -200,7 +234,7 @@ class Recurrence
     /**
      * Parse and normalize a recurrence rule JSON payload.
      *
-     * @return ?array{freq:string, byweekday?:array<int,int>, bymonth?:int, bymonthday?:int}
+     * @return ?array{freq:string, byweekday?:array<int,int>, bymonth?:int, bymonthday?:int, interval?:int}
      */
     private static function parseRule(?string $ruleJson): ?array
     {
@@ -260,7 +294,20 @@ class Recurrence
             if (!is_int($bymonthday) || $bymonthday < 1 || $bymonthday > 31) {
                 return null;
             }
-            return ['freq' => 'monthly', 'bymonthday' => $bymonthday];
+
+            $interval = $data['interval'] ?? 1;
+            if (is_string($interval) && ctype_digit($interval)) {
+                $interval = (int)$interval;
+            }
+            if (!is_int($interval) || $interval < 1 || $interval > 120) {
+                return null;
+            }
+
+            $rule = ['freq' => 'monthly', 'bymonthday' => $bymonthday];
+            if ($interval !== 1) {
+                $rule['interval'] = $interval;
+            }
+            return $rule;
         }
 
         if ($freq === 'yearly') {
@@ -306,4 +353,3 @@ class Recurrence
         return $firstOfMonth->setDate($year, $month, $day);
     }
 }
-

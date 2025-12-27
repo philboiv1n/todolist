@@ -128,6 +128,7 @@ $editableLists = array_values(array_filter(
                                             <option value="weekdays">Every weekday</option>
                                             <option value="weekly">Every week</option>
                                             <option value="monthly">Every month</option>
+                                            <option value="quarterly">Every 3 months</option>
                                             <option value="yearly">Every year</option>
                                         </select>
                                         <?php if (!$supportsRecurrence): ?>

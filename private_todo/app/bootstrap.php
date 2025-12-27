@@ -1,7 +1,7 @@
 <?php
 // Shared bootstrap for the todo app: autoloading, session setup, and DB connection.
 if (!defined('TODO_APP_VERSION')) {
-    define('TODO_APP_VERSION', 'v.0.9.4 (Beta)');
+    define('TODO_APP_VERSION', 'v.0.9.5 (Beta)');
 }
 
 // Absolute paths (public entrypoints may define TODO_PUBLIC_DIR first).
