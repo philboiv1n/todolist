@@ -28,7 +28,7 @@
                 <li>
                     <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
                         <div class="uk-margin-small-right">
-                            <span class="uk-text-bold"><?php echo $orderedListName; ?></span>
+                            <span><?php echo $orderedListName; ?></span>
                         </div>
                         <div class="uk-flex uk-flex-middle">
                             <form method="post" action="settings.php" class="uk-margin-remove uk-display-inline-block" data-ajax="1">

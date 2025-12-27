@@ -24,10 +24,11 @@ $access = $listAccess[$listId] ?? [];
 ?>
 
 <details class="uk-margin">
-    <summary class="uk-card uk-card-default uk-card-body uk-padding-small">
+    <summary class="todo-details-summary uk-card uk-card-default uk-card-body uk-padding-small">
         <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
-            <div class="uk-margin-small-right">
-                <span class="uk-text-bold"><?php echo $listName; ?></span>
+            <div class="uk-margin-small-right uk-flex uk-flex-middle">
+                <span><?php echo $listName; ?></span>
+                <span class="todo-list-toggle-icon uk-margin-small-left" uk-icon="chevron-down" aria-hidden="true"></span>
             </div>
             <span class="uk-text-meta"><?php echo $count; ?> tasks</span>
         </div>

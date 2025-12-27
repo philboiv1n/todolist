@@ -232,3 +232,18 @@ a:not(.uk-button):not(.uk-link-reset) {
     margin: 0 !important;
     overflow: hidden;
 }
+
+/* List accordions */
+.todo-details-summary {
+    list-style: none;
+    cursor: pointer;
+}
+.todo-details-summary::-webkit-details-marker {
+    display: none;
+}
+.todo-list-toggle-icon svg {
+    transition: transform 160ms ease;
+}
+details:not([open]) .todo-list-toggle-icon svg {
+    transform: rotate(-90deg);
+}

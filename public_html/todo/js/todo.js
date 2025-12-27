@@ -4,6 +4,65 @@
     // Intercept and AJAX-submit any form marked with `data-ajax="1"`.
     // This is progressive enhancement: without JS, forms still submit normally and the page reloads.
     const ajaxFormSelector = 'form[data-ajax="1"]';
+    const listRootSelector = '[data-list-id]';
+    const listDetailsSelector = 'details.todo-list-details';
+
+    function getUserId() {
+        const userId = Number.parseInt(document.body?.dataset?.userId ?? '0', 10);
+        return Number.isFinite(userId) ? userId : 0;
+    }
+
+    function getListExpandedStorageKey() {
+        return `todo:listExpanded:${getUserId()}`;
+    }
+
+    function loadExpandedListIds() {
+        try {
+            const raw = window.localStorage.getItem(getListExpandedStorageKey());
+            if (!raw) {
+                return new Set();
+            }
+            const data = JSON.parse(raw);
+            if (!Array.isArray(data)) {
+                return new Set();
+            }
+            return new Set(data.map((id) => String(id)));
+        } catch {
+            return new Set();
+        }
+    }
+
+    function saveExpandedListIds(expandedListIds) {
+        try {
+            window.localStorage.setItem(getListExpandedStorageKey(), JSON.stringify([...expandedListIds]));
+        } catch {
+            // Ignore (e.g. disabled storage).
+        }
+    }
+
+    const expandedListIds = loadExpandedListIds();
+    let isApplyingExpandedState = false;
+
+    function applyExpandedState(root = document) {
+        isApplyingExpandedState = true;
+        const listEls = [];
+        if (root instanceof Element && root.matches(listRootSelector)) {
+            listEls.push(root);
+        }
+        listEls.push(...root.querySelectorAll(listRootSelector));
+        for (const listEl of listEls) {
+            const listId = listEl.dataset.listId ? String(listEl.dataset.listId) : null;
+            if (!listId || !listEl) {
+                continue;
+            }
+            const detailsEl = listEl.querySelector(listDetailsSelector);
+            if (!detailsEl) {
+                continue;
+            }
+            detailsEl.open = expandedListIds.has(listId);
+        }
+        isApplyingExpandedState = false;
+    }
 
     // Show a UIkit toast if available; fall back to `alert()` otherwise.
     function notify(message, status = 'danger', timeoutMs = 4000) {
@@ -97,6 +156,12 @@
             if (li) {
                 currentUl.appendChild(li);
             }
+        }
+
+        const currentCountEl = currentList.querySelector('.todo-list-task-count');
+        const replacementCountEl = replacementList.querySelector('.todo-list-task-count');
+        if (currentCountEl && replacementCountEl) {
+            currentCountEl.textContent = replacementCountEl.textContent;
         }
 
         return true;
@@ -195,6 +260,8 @@
                 }
             }
 
+            applyExpandedState(replacement);
+
             // Let UIkit re-scan the updated DOM (grid/layout, icons, etc).
             if (window.UIkit && typeof window.UIkit.update === 'function') {
                 const container = document.getElementById('lists');
@@ -245,4 +312,36 @@
         event.preventDefault();
         submitAjaxForm(form);
     });
+
+    document.addEventListener(
+        'toggle',
+        (event) => {
+            if (isApplyingExpandedState) {
+                return;
+            }
+            const target = event.target;
+            if (!(target instanceof HTMLDetailsElement)) {
+                return;
+            }
+            if (!target.matches(listDetailsSelector)) {
+                return;
+            }
+
+            const listEl = target.closest(listRootSelector);
+            const listId = listEl?.dataset?.listId ? String(listEl.dataset.listId) : null;
+            if (!listId) {
+                return;
+            }
+
+            if (target.open) {
+                expandedListIds.add(listId);
+            } else {
+                expandedListIds.delete(listId);
+            }
+            saveExpandedListIds(expandedListIds);
+        },
+        true
+    );
+
+    applyExpandedState();
 })();

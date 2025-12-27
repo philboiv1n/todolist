@@ -14,8 +14,7 @@ $newPasswordId = "new-password-{$userId}";
     <summary class="uk-card uk-card-default uk-card-body uk-padding-small">
         <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
             <div class="uk-margin-small-right">
-                <span class="uk-text-bold"><?php echo $username; ?></span>
-                <span class="uk-text-meta">#<?php echo $userId; ?></span>
+                <span><?php echo $username; ?></span>
                 <?php if ($isSelf): ?>
                     <span class="uk-text-meta">(You)</span>
                 <?php endif; ?>
@@ -80,4 +79,3 @@ $newPasswordId = "new-password-{$userId}";
         </div>
     </div>
 </details>
-

@@ -6,19 +6,28 @@ $listId = (int)($list['id'] ?? 0);
 $canEdit = !empty($list['can_edit']);
 $listName = \TodoApp\Security::h((string)($list['name'] ?? ''));
 $todos = is_array($list['todos'] ?? null) ? $list['todos'] : [];
+$taskCount = count($todos);
 $overdueCutoff = (new DateTimeImmutable('today'))->modify('-3 days');
 ?>
 
 <div data-list-id="<?php echo $listId; ?>">
     <section aria-labelledby="list-<?php echo $listId; ?>">
-        <div class="uk-card uk-card-default">
-	            <div class="uk-card-header">
-	                <h2 id="list-<?php echo $listId; ?>" class="uk-h4 uk-margin-remove-bottom">
-	                    <?php echo $listName; ?>
-	                </h2>
-	            </div>
+        <details class="uk-card uk-card-default todo-list-details">
+            <summary class="todo-details-summary uk-card-header uk-padding-remove">
+                <div class="uk-padding-small">
+                    <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
+                        <div class="uk-margin-small-right uk-flex uk-flex-middle">
+                            <span id="list-<?php echo $listId; ?>" class="uk-h4 uk-margin-remove-bottom">
+                                <?php echo $listName; ?>
+                            </span>
+                            <span class="todo-list-toggle-icon uk-margin-small-left" uk-icon="chevron-down" aria-hidden="true"></span>
+                        </div>
+                        <span class="uk-text-meta todo-list-task-count"><?php echo $taskCount; ?> tasks</span>
+                    </div>
+                </div>
+            </summary>
 
-            <div class="uk-card-body">
+            <div id="list-body-<?php echo $listId; ?>" class="uk-card-body todo-list-body">
                 <?php if (!$canEdit): ?>
                     <div class="uk-alert uk-alert-primary" role="note">
                         <p>You have view-only access to this list.</p>
@@ -148,6 +157,6 @@ $overdueCutoff = (new DateTimeImmutable('today'))->modify('-3 days');
                     </ul>
                 <?php endif; ?>
             </div>
-        </div>
+        </details>
     </section>
 </div>
