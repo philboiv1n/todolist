@@ -15,6 +15,9 @@ class Query
     /** @var ?array<string, bool> */
     private static ?array $todosColumnCache = null;
 
+    /** @var ?array<string, bool> */
+    private static ?array $listAccessColumnCache = null;
+
     // --- USERS ---
 
     /** Fetch a user row by username. */
@@ -59,17 +62,28 @@ class Query
      */
     public static function getAccessibleLists(SQLite3 $db, int $userId): array
     {
+        $supportsSortOrder = self::listAccessSupportsSortOrder($db);
+        $sortOrderSelect = $supportsSortOrder ? 'list_access.sort_order AS sort_order,' : '0 AS sort_order,';
+        $sortOrderClause = $supportsSortOrder ? 'list_access.sort_order ASC,' : '';
+
         $stmt = $db->prepare(
             "SELECT lists.*,
                     list_access.can_edit AS can_edit,
+                    {$sortOrderSelect}
                     CASE
-                        WHEN lists.created_by = :uid AND lists.name = 'Personal list' THEN 1
+                        WHEN lists.id = (
+                            SELECT id
+                            FROM lists
+                            WHERE created_by = :uid
+                            ORDER BY created_at, id
+                            LIMIT 1
+                        ) THEN 1
                         ELSE 0
                     END AS is_personal
              FROM lists
              INNER JOIN list_access ON list_access.list_id = lists.id
              WHERE list_access.user_id = :uid
-             ORDER BY is_personal DESC, lists.name"
+             ORDER BY is_personal DESC, {$sortOrderClause} lists.name"
         );
         $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
         $res = $stmt->execute();
@@ -88,11 +102,21 @@ class Query
      */
     public static function getAccessibleListById(SQLite3 $db, int $userId, int $listId): ?array
     {
+        $supportsSortOrder = self::listAccessSupportsSortOrder($db);
+        $sortOrderSelect = $supportsSortOrder ? 'list_access.sort_order AS sort_order,' : '0 AS sort_order,';
+
         $stmt = $db->prepare(
             "SELECT lists.*,
                     list_access.can_edit AS can_edit,
+                    {$sortOrderSelect}
                     CASE
-                        WHEN lists.created_by = :uid AND lists.name = 'Personal list' THEN 1
+                        WHEN lists.id = (
+                            SELECT id
+                            FROM lists
+                            WHERE created_by = :uid
+                            ORDER BY created_at, id
+                            LIMIT 1
+                        ) THEN 1
                         ELSE 0
                     END AS is_personal
              FROM lists
@@ -106,6 +130,12 @@ class Query
         $res = $stmt->execute();
         $row = $res->fetchArray(SQLITE3_ASSOC);
         return $row ?: null;
+    }
+
+    public static function listAccessSupportsSortOrder(SQLite3 $db): bool
+    {
+        $columns = self::getListAccessColumns($db);
+        return isset($columns['sort_order']);
     }
 
     /**
@@ -384,6 +414,28 @@ class Query
         return $cols;
     }
 
+    /**
+     * @return array<string, bool> Map: column name => true
+     */
+    private static function getListAccessColumns(SQLite3 $db): array
+    {
+        if (self::$listAccessColumnCache !== null) {
+            return self::$listAccessColumnCache;
+        }
+
+        $cols = [];
+        $res = $db->query('PRAGMA table_info(list_access)');
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $name = $row['name'] ?? null;
+            if (is_string($name) && $name !== '') {
+                $cols[$name] = true;
+            }
+        }
+
+        self::$listAccessColumnCache = $cols;
+        return $cols;
+    }
+
     /** Delete a todo by ID. */
     public static function deleteTodo(SQLite3 $db, int $todoId): void
     {
@@ -561,6 +613,26 @@ class Query
     /** Grant or update access for a user to a list. */
     public static function addOrUpdateListAccess(SQLite3 $db, int $listId, int $userId, bool $canEdit): void
     {
+        if (self::listAccessSupportsSortOrder($db)) {
+            $stmt = $db->prepare(
+                'INSERT OR IGNORE INTO list_access (list_id, user_id, can_edit, sort_order)
+                 VALUES (:lid, :uid, :ce, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM list_access WHERE user_id = :uid))'
+            );
+            $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+            $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+            $stmt->bindValue(':ce', $canEdit ? 1 : 0, SQLITE3_INTEGER);
+            $stmt->execute();
+
+            $stmt = $db->prepare(
+                'UPDATE list_access SET can_edit = :ce WHERE list_id = :lid AND user_id = :uid'
+            );
+            $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+            $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+            $stmt->bindValue(':ce', $canEdit ? 1 : 0, SQLITE3_INTEGER);
+            $stmt->execute();
+            return;
+        }
+
         $stmt = $db->prepare(
             'INSERT OR REPLACE INTO list_access (list_id, user_id, can_edit) VALUES (:lid, :uid, :ce)'
         );
@@ -568,6 +640,49 @@ class Query
         $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
         $stmt->bindValue(':ce', $canEdit ? 1 : 0, SQLITE3_INTEGER);
         $stmt->execute();
+    }
+
+    /**
+     * Persist a per-user ordering for the given list ids (first id => smallest sort order).
+     *
+     * @param array<int, int> $orderedListIds
+     */
+    public static function setUserListSortOrder(SQLite3 $db, int $userId, array $orderedListIds): void
+    {
+        if (!self::listAccessSupportsSortOrder($db)) {
+            return;
+        }
+
+        $ordered = [];
+        foreach ($orderedListIds as $id) {
+            $id = (int)$id;
+            if ($id > 0) {
+                $ordered[] = $id;
+            }
+        }
+
+        if (empty($ordered)) {
+            return;
+        }
+
+        $db->exec('BEGIN');
+        try {
+            $stmt = $db->prepare(
+                'UPDATE list_access SET sort_order = :so WHERE user_id = :uid AND list_id = :lid'
+            );
+            $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+
+            foreach ($ordered as $i => $listId) {
+                $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+                $stmt->bindValue(':so', $i + 1, SQLITE3_INTEGER);
+                $stmt->execute();
+            }
+
+            $db->exec('COMMIT');
+        } catch (\Throwable $e) {
+            $db->exec('ROLLBACK');
+            throw $e;
+        }
     }
 
     /** Remove a user's access to a list. */

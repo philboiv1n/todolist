@@ -67,5 +67,6 @@ require __DIR__ . '/partials/layout/footer.view.php';
 
 <script src="js/uikit.min.js" defer></script>
 <script src="js/uikit-icons.min.js" defer></script>
+<script src="js/settings.js" defer></script>
 </body>
 </html>

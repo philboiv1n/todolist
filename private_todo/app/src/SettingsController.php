@@ -45,6 +45,10 @@ class SettingsController
         $ownedLists = Query::getListsOwnedByUser($this->db, $this->currentUserId);
         $listIds = array_map(static fn(array $l): int => (int)($l['id'] ?? 0), $ownedLists);
         $listIds = array_values(array_filter($listIds, static fn(int $id): bool => $id > 0));
+        $supportsListOrdering = Query::listAccessSupportsSortOrder($this->db);
+        $orderedLists = $this->buildListOrderViewModel(
+            Query::getAccessibleLists($this->db, $this->currentUserId)
+        );
 
         return [
             'currentUser' => $this->currentUser,
@@ -52,6 +56,8 @@ class SettingsController
             'msg' => $this->msg,
             'error' => $this->error,
             'ownedLists' => $ownedLists,
+            'supportsListOrdering' => $supportsListOrdering,
+            'orderedLists' => $orderedLists,
             'users' => Query::getAllUsers($this->db),
             'listAccess' => Query::getListAccessByListIds($this->db, $listIds),
             'listCounts' => Query::countTodosByListIds($this->db, $listIds),
@@ -97,7 +103,43 @@ class SettingsController
             $this->handleAddAccess();
         } elseif ($action === 'remove_access') {
             $this->handleRemoveAccess();
+        } elseif ($action === 'reorder_list') {
+            $this->handleReorderList();
         }
+    }
+
+    private function buildListOrderViewModel(array $lists): array
+    {
+        $reorderableLists = [];
+        $reorderableIds = [];
+        foreach ($lists as $list) {
+            if (empty($list['is_personal'])) {
+                $listId = (int)($list['id'] ?? 0);
+                if ($listId > 0) {
+                    $reorderableLists[] = $list;
+                    $reorderableIds[] = $listId;
+                }
+            }
+        }
+        $count = count($reorderableIds);
+
+        if ($count <= 1) {
+            foreach ($reorderableLists as $i => $list) {
+                $reorderableLists[$i]['can_move_up'] = false;
+                $reorderableLists[$i]['can_move_down'] = false;
+            }
+            return $reorderableLists;
+        }
+
+        $indexById = array_flip($reorderableIds);
+        foreach ($reorderableLists as $i => $list) {
+            $listId = (int)($list['id'] ?? 0);
+            $pos = $indexById[$listId] ?? null;
+            $reorderableLists[$i]['can_move_up'] = $pos !== null && $pos > 0;
+            $reorderableLists[$i]['can_move_down'] = $pos !== null && $pos < ($count - 1);
+        }
+
+        return $reorderableLists;
     }
 
     private function requireManageableList(int $listId): array
@@ -247,5 +289,118 @@ class SettingsController
         Query::removeListAccess($this->db, $listId, $userId);
         $this->msg = 'Access removed.';
     }
-}
 
+    private function handleReorderList(): void
+    {
+        $wantsJson = $this->wantsJson();
+
+        if (!Query::listAccessSupportsSortOrder($this->db)) {
+            $message = 'List ordering is not available yet. Please run the migration script.';
+            if ($wantsJson) {
+                $this->respondJson(['ok' => false, 'error' => $message], 400);
+            }
+            $this->error = $message;
+            return;
+        }
+
+        $listId = (int)($_POST['list_id'] ?? 0);
+        $direction = trim((string)($_POST['direction'] ?? ''));
+        if ($listId <= 0 || ($direction !== 'up' && $direction !== 'down')) {
+            $message = 'Invalid list reorder request.';
+            if ($wantsJson) {
+                $this->respondJson(['ok' => false, 'error' => $message], 400);
+            }
+            $this->error = $message;
+            return;
+        }
+
+        $lists = Query::getAccessibleLists($this->db, $this->currentUserId);
+        $reorderableIds = [];
+        foreach ($lists as $list) {
+            if (empty($list['is_personal'])) {
+                $reorderableIds[] = (int)($list['id'] ?? 0);
+            }
+        }
+        $reorderableIds = array_values(array_filter($reorderableIds, static fn(int $id): bool => $id > 0));
+        $count = count($reorderableIds);
+        if ($count <= 1) {
+            if ($wantsJson) {
+                $this->respondJson(['ok' => true, 'html' => $this->renderListOrderSection()]);
+            }
+            return;
+        }
+
+        $index = array_search($listId, $reorderableIds, true);
+        if ($index === false) {
+            $message = 'List not found or cannot be reordered.';
+            if ($wantsJson) {
+                $this->respondJson(['ok' => false, 'error' => $message], 404);
+            }
+            $this->error = $message;
+            return;
+        }
+
+        if ($direction === 'up') {
+            if ($index === 0) {
+                if ($wantsJson) {
+                    $this->respondJson(['ok' => true, 'html' => $this->renderListOrderSection()]);
+                }
+                return;
+            }
+            $swapIndex = $index - 1;
+        } else {
+            if ($index === $count - 1) {
+                if ($wantsJson) {
+                    $this->respondJson(['ok' => true, 'html' => $this->renderListOrderSection()]);
+                }
+                return;
+            }
+            $swapIndex = $index + 1;
+        }
+
+        [$reorderableIds[$index], $reorderableIds[$swapIndex]] = [$reorderableIds[$swapIndex], $reorderableIds[$index]];
+        Query::setUserListSortOrder($this->db, $this->currentUserId, $reorderableIds);
+        $this->msg = 'List order updated.';
+
+        if ($wantsJson) {
+            $this->respondJson([
+                'ok' => true,
+                'msg' => $this->msg,
+                'html' => $this->renderListOrderSection(),
+            ]);
+        }
+    }
+
+    private function renderListOrderSection(): string
+    {
+        $csrf = Security::h(Security::csrfToken());
+        $supportsListOrdering = Query::listAccessSupportsSortOrder($this->db);
+        $orderedLists = $this->buildListOrderViewModel(
+            Query::getAccessibleLists($this->db, $this->currentUserId)
+        );
+
+        return View::renderToString('partials/settings/list-order-section.view.php', [
+            'csrf' => $csrf,
+            'supportsListOrdering' => $supportsListOrdering,
+            'orderedLists' => $orderedLists,
+        ]);
+    }
+
+    private function wantsJson(): bool
+    {
+        $accept = $_SERVER['HTTP_ACCEPT'] ?? '';
+        if (is_string($accept) && str_contains($accept, 'application/json')) {
+            return true;
+        }
+        return ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest';
+    }
+
+    private function respondJson(array $payload, int $status = 200): void
+    {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        echo json_encode($payload, JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+}

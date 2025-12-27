@@ -28,7 +28,6 @@ $access = $listAccess[$listId] ?? [];
         <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">
             <div class="uk-margin-small-right">
                 <span class="uk-text-bold"><?php echo $listName; ?></span>
-                <span class="uk-text-meta">#<?php echo $listId; ?></span>
             </div>
             <span class="uk-text-meta"><?php echo $count; ?> tasks</span>
         </div>

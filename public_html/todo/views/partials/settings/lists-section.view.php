@@ -1,6 +1,8 @@
 <?php
 /** @var string $csrf */
 /** @var array $ownedLists */
+/** @var bool $supportsListOrdering */
+/** @var array $orderedLists */
 /** @var array $users */
 /** @var array $listAccess */
 /** @var array $listCounts */
@@ -9,8 +11,8 @@
 <section aria-labelledby="my-lists-title" class="uk-card uk-card-default uk-card-body">
     <h2 id="my-lists-title" class="uk-h3 uk-margin-small-bottom">My lists</h2>
 
-    <section aria-labelledby="create-list-title" class="uk-margin">
-        <h3 id="create-list-title" class="uk-h4 uk-margin-small-bottom">Create list</h3>
+    <section aria-labelledby="create-list-title" class="uk-margin-bottom">
+        <h3 id="create-list-title" class="uk-h4 uk-margin-small-bottom">Create a list</h3>
         <form method="post" action="settings.php" class="uk-form-stacked">
             <input type="hidden" name="action" value="create_list">
             <input type="hidden" name="csrf_token" value="<?php echo $csrf; ?>">
@@ -29,9 +31,7 @@
         </form>
     </section>
 
-    <hr class="uk-divider-small">
-
-    <section aria-labelledby="existing-owned-lists-title">
+    <section aria-labelledby="existing-owned-lists-title" class="uk-margin-bottom">
         <h3 id="existing-owned-lists-title" class="uk-h4 uk-margin-small-bottom">Existing lists</h3>
 
         <?php if (empty($ownedLists)): ?>
@@ -48,4 +48,6 @@
             <?php endforeach; ?>
         <?php endif; ?>
     </section>
+
+    <?php require __DIR__ . '/list-order-section.view.php'; ?>
 </section>
