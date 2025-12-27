@@ -4,6 +4,7 @@
 
 $listId = (int)($list['id'] ?? 0);
 $canEdit = !empty($list['can_edit']);
+$isExpanded = !empty($list['is_expanded']);
 $listName = \TodoApp\Security::h((string)($list['name'] ?? ''));
 $todos = is_array($list['todos'] ?? null) ? $list['todos'] : [];
 $taskCount = count($todos);
@@ -12,7 +13,7 @@ $overdueCutoff = (new DateTimeImmutable('today'))->modify('-3 days');
 
 <div data-list-id="<?php echo $listId; ?>">
     <section aria-labelledby="list-<?php echo $listId; ?>">
-        <details class="uk-card uk-card-default todo-list-details">
+        <details class="uk-card uk-card-default todo-list-details"<?php echo $isExpanded ? ' open' : ''; ?>>
             <summary class="todo-details-summary uk-card-header uk-padding-remove">
                 <div class="uk-padding-small">
                     <div class="uk-flex uk-flex-between uk-flex-middle uk-flex-wrap">

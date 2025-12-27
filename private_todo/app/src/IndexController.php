@@ -119,6 +119,16 @@ class IndexController
         }
 
         $affectedListId = null;
+        if ($action === 'set_list_expanded') {
+            $result = $this->handleSetListExpanded();
+            if ($wantsJson) {
+                $this->respondJson(
+                    $result,
+                    ($result['ok'] ?? false) ? 200 : 400
+                );
+            }
+            redirect($this->selfPath);
+        }
         if ($action === 'add') {
             $affectedListId = $this->handleAddTodo();
         } elseif ($action === 'toggle') {
@@ -148,6 +158,30 @@ class IndexController
         }
 
         redirect($this->selfPath);
+    }
+
+    /**
+     * Persist the UI expanded/collapsed state for a list (per-user).
+     *
+     * @return array{ok:bool, error?:string}
+     */
+    private function handleSetListExpanded(): array
+    {
+        $listId = (int)($_POST['list_id'] ?? 0);
+        if ($listId <= 0) {
+            return ['ok' => false, 'error' => 'Invalid list.'];
+        }
+
+        if (!Query::userHasListAccess($this->db, (int)$this->currentUserId, $listId)) {
+            return ['ok' => false, 'error' => 'No access to that list.'];
+        }
+
+        $isExpanded = (int)($_POST['is_expanded'] ?? 0) === 1;
+        if (!Query::setUserListExpandedState($this->db, (int)$this->currentUserId, $listId, $isExpanded)) {
+            return ['ok' => false, 'error' => 'List state persistence is not enabled. Run the migration script.'];
+        }
+
+        return ['ok' => true];
     }
 
     private function wantsJson(): bool

@@ -65,11 +65,14 @@ class Query
         $supportsSortOrder = self::listAccessSupportsSortOrder($db);
         $sortOrderSelect = $supportsSortOrder ? 'list_access.sort_order AS sort_order,' : '0 AS sort_order,';
         $sortOrderClause = $supportsSortOrder ? 'list_access.sort_order ASC,' : '';
+        $supportsExpandedState = self::listAccessSupportsExpandedState($db);
+        $expandedSelect = $supportsExpandedState ? 'list_access.is_expanded AS is_expanded,' : '0 AS is_expanded,';
 
         $stmt = $db->prepare(
             "SELECT lists.*,
                     list_access.can_edit AS can_edit,
                     {$sortOrderSelect}
+                    {$expandedSelect}
                     CASE
                         WHEN lists.id = (
                             SELECT id
@@ -104,11 +107,14 @@ class Query
     {
         $supportsSortOrder = self::listAccessSupportsSortOrder($db);
         $sortOrderSelect = $supportsSortOrder ? 'list_access.sort_order AS sort_order,' : '0 AS sort_order,';
+        $supportsExpandedState = self::listAccessSupportsExpandedState($db);
+        $expandedSelect = $supportsExpandedState ? 'list_access.is_expanded AS is_expanded,' : '0 AS is_expanded,';
 
         $stmt = $db->prepare(
             "SELECT lists.*,
                     list_access.can_edit AS can_edit,
                     {$sortOrderSelect}
+                    {$expandedSelect}
                     CASE
                         WHEN lists.id = (
                             SELECT id
@@ -136,6 +142,12 @@ class Query
     {
         $columns = self::getListAccessColumns($db);
         return isset($columns['sort_order']);
+    }
+
+    public static function listAccessSupportsExpandedState(SQLite3 $db): bool
+    {
+        $columns = self::getListAccessColumns($db);
+        return isset($columns['is_expanded']);
     }
 
     /**
@@ -622,19 +634,18 @@ class Query
             $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
             $stmt->bindValue(':ce', $canEdit ? 1 : 0, SQLITE3_INTEGER);
             $stmt->execute();
-
+        } else {
             $stmt = $db->prepare(
-                'UPDATE list_access SET can_edit = :ce WHERE list_id = :lid AND user_id = :uid'
+                'INSERT OR IGNORE INTO list_access (list_id, user_id, can_edit) VALUES (:lid, :uid, :ce)'
             );
             $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
             $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
             $stmt->bindValue(':ce', $canEdit ? 1 : 0, SQLITE3_INTEGER);
             $stmt->execute();
-            return;
         }
 
         $stmt = $db->prepare(
-            'INSERT OR REPLACE INTO list_access (list_id, user_id, can_edit) VALUES (:lid, :uid, :ce)'
+            'UPDATE list_access SET can_edit = :ce WHERE list_id = :lid AND user_id = :uid'
         );
         $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
         $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
@@ -683,6 +694,22 @@ class Query
             $db->exec('ROLLBACK');
             throw $e;
         }
+    }
+
+    public static function setUserListExpandedState(SQLite3 $db, int $userId, int $listId, bool $isExpanded): bool
+    {
+        if (!self::listAccessSupportsExpandedState($db)) {
+            return false;
+        }
+
+        $stmt = $db->prepare(
+            'UPDATE list_access SET is_expanded = :ie WHERE user_id = :uid AND list_id = :lid'
+        );
+        $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $stmt->bindValue(':ie', $isExpanded ? 1 : 0, SQLITE3_INTEGER);
+        $stmt->execute();
+        return true;
     }
 
     /** Remove a user's access to a list. */

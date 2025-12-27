@@ -7,63 +7,6 @@
     const listRootSelector = '[data-list-id]';
     const listDetailsSelector = 'details.todo-list-details';
 
-    function getUserId() {
-        const userId = Number.parseInt(document.body?.dataset?.userId ?? '0', 10);
-        return Number.isFinite(userId) ? userId : 0;
-    }
-
-    function getListExpandedStorageKey() {
-        return `todo:listExpanded:${getUserId()}`;
-    }
-
-    function loadExpandedListIds() {
-        try {
-            const raw = window.localStorage.getItem(getListExpandedStorageKey());
-            if (!raw) {
-                return new Set();
-            }
-            const data = JSON.parse(raw);
-            if (!Array.isArray(data)) {
-                return new Set();
-            }
-            return new Set(data.map((id) => String(id)));
-        } catch {
-            return new Set();
-        }
-    }
-
-    function saveExpandedListIds(expandedListIds) {
-        try {
-            window.localStorage.setItem(getListExpandedStorageKey(), JSON.stringify([...expandedListIds]));
-        } catch {
-            // Ignore (e.g. disabled storage).
-        }
-    }
-
-    const expandedListIds = loadExpandedListIds();
-    let isApplyingExpandedState = false;
-
-    function applyExpandedState(root = document) {
-        isApplyingExpandedState = true;
-        const listEls = [];
-        if (root instanceof Element && root.matches(listRootSelector)) {
-            listEls.push(root);
-        }
-        listEls.push(...root.querySelectorAll(listRootSelector));
-        for (const listEl of listEls) {
-            const listId = listEl.dataset.listId ? String(listEl.dataset.listId) : null;
-            if (!listId || !listEl) {
-                continue;
-            }
-            const detailsEl = listEl.querySelector(listDetailsSelector);
-            if (!detailsEl) {
-                continue;
-            }
-            detailsEl.open = expandedListIds.has(listId);
-        }
-        isApplyingExpandedState = false;
-    }
-
     // Show a UIkit toast if available; fall back to `alert()` otherwise.
     function notify(message, status = 'danger', timeoutMs = 4000) {
         if (window.UIkit && typeof window.UIkit.notification === 'function') {
@@ -82,6 +25,48 @@
             return JSON.parse(text);
         } catch {
             return null;
+        }
+    }
+
+    function getCsrfToken() {
+        return String(document.body?.dataset?.csrfToken ?? '');
+    }
+
+    let didWarnListStateSaveFailure = false;
+
+    async function persistListExpandedState(listId, isExpanded) {
+        const csrfToken = getCsrfToken();
+        if (!csrfToken) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.set('action', 'set_list_expanded');
+        formData.set('csrf_token', csrfToken);
+        formData.set('list_id', String(listId));
+        formData.set('is_expanded', isExpanded ? '1' : '0');
+
+        try {
+            const res = await fetch(window.location.href, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: formData,
+                credentials: 'same-origin',
+            });
+
+            const text = await res.text();
+            const data = parseJsonResponse(text);
+            if (!res.ok || !data || !data.ok) {
+                if (!didWarnListStateSaveFailure) {
+                    didWarnListStateSaveFailure = true;
+                    notify(data?.error || 'Could not save list open/closed state.', 'warning');
+                }
+            }
+        } catch {
+            // Ignore (e.g. offline). State will still apply on this page load.
         }
     }
 
@@ -234,6 +219,7 @@
 
             // Replace the list card in-place with the freshly rendered HTML.
             const current = document.querySelector(`[data-list-id="${data.list_id}"]`);
+            const currentDetailsOpen = current?.querySelector(listDetailsSelector)?.open;
             const template = document.createElement('template');
             template.innerHTML = String(data.html).trim();
             const replacement = template.content.firstElementChild;
@@ -251,6 +237,11 @@
             if (!didReplace) {
                 if (current) {
                     current.replaceWith(replacement);
+
+                    const replacementDetails = replacement.querySelector(listDetailsSelector);
+                    if (replacementDetails && typeof currentDetailsOpen === 'boolean' && replacementDetails.open !== currentDetailsOpen) {
+                        replacementDetails.open = currentDetailsOpen;
+                    }
                 } else {
                     // If the list wasn't found in the DOM (unexpected), append it.
                     const container = document.getElementById('lists');
@@ -259,8 +250,6 @@
                     }
                 }
             }
-
-            applyExpandedState(replacement);
 
             // Let UIkit re-scan the updated DOM (grid/layout, icons, etc).
             if (window.UIkit && typeof window.UIkit.update === 'function') {
@@ -316,9 +305,6 @@
     document.addEventListener(
         'toggle',
         (event) => {
-            if (isApplyingExpandedState) {
-                return;
-            }
             const target = event.target;
             if (!(target instanceof HTMLDetailsElement)) {
                 return;
@@ -333,15 +319,8 @@
                 return;
             }
 
-            if (target.open) {
-                expandedListIds.add(listId);
-            } else {
-                expandedListIds.delete(listId);
-            }
-            saveExpandedListIds(expandedListIds);
+            persistListExpandedState(listId, target.open);
         },
         true
     );
-
-    applyExpandedState();
 })();

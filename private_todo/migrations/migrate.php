@@ -51,6 +51,7 @@ function ensure_list_schema(SQLite3 $db): void {
             user_id INTEGER NOT NULL,
             can_edit INTEGER NOT NULL DEFAULT 1,
             sort_order INTEGER NOT NULL DEFAULT 0,
+            is_expanded INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY (list_id, user_id),
             FOREIGN KEY(list_id) REFERENCES lists(id) ON DELETE CASCADE,
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -97,6 +98,10 @@ function ensure_list_schema(SQLite3 $db): void {
     if (!column_exists($db, 'list_access', 'sort_order')) {
         echo "Adding column 'sort_order' to 'list_access' table.\n";
         $db->exec('ALTER TABLE list_access ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0');
+    }
+    if (!column_exists($db, 'list_access', 'is_expanded')) {
+        echo "Adding column 'is_expanded' to 'list_access' table.\n";
+        $db->exec('ALTER TABLE list_access ADD COLUMN is_expanded INTEGER NOT NULL DEFAULT 0');
     }
 
     // Used by Security::isLoginRateLimited() to store per-IP login failures.
