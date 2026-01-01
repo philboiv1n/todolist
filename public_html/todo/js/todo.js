@@ -49,18 +49,6 @@
         }
     }
 
-    function isUserBusy() {
-        const active = document.activeElement;
-        if (!active || active === document.body || active === document.documentElement) {
-            return false;
-        }
-        if (active.isContentEditable) {
-            return true;
-        }
-        const tag = active.tagName;
-        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-    }
-
     function buildSyncUrl() {
         const url = new URL(window.location.href);
         url.searchParams.set('action', 'sync');
@@ -68,50 +56,7 @@
         return url.toString();
     }
 
-    let syncBannerVisible = false;
     let syncToken = getSyncToken();
-
-    let syncBanner = null;
-
-    function ensureSyncBanner() {
-        if (syncBanner) {
-            return syncBanner;
-        }
-
-        const container = document.querySelector('main .uk-container');
-        if (!container) {
-            return null;
-        }
-
-        const banner = document.createElement('div');
-        banner.id = 'sync-refresh-banner';
-        banner.className = 'uk-alert todo-sync-banner';
-        banner.hidden = true;
-
-        const row = document.createElement('div');
-        row.className = 'uk-flex uk-flex-middle uk-flex-left uk-flex-wrap';
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'uk-button uk-button-primary uk-button-small uk-text-normal todo-sync-refresh';
-        button.dataset.action = 'refresh';
-        button.textContent = 'Refresh';
-        button.addEventListener('click', () => {
-            window.location.reload();
-        });
-
-        const text = document.createElement('span');
-        text.className = 'uk-margin-small-left';
-        text.textContent = 'New updates are available.';
-
-        row.appendChild(button);
-        row.appendChild(text);
-        banner.appendChild(row);
-        container.prepend(banner);
-
-        syncBanner = banner;
-        return banner;
-    }
 
     let didWarnListStateSaveFailure = false;
 
@@ -152,7 +97,7 @@
     }
 
     async function checkForSyncUpdates() {
-        if (syncToken === null || document.hidden || syncBannerVisible) {
+        if (syncToken === null || document.hidden) {
             return;
         }
 
@@ -188,30 +133,13 @@
             }
 
             updateSyncToken(nextToken);
-
-            if (!isUserBusy()) {
-                window.location.reload();
-                return;
-            }
-
-            const banner = ensureSyncBanner();
-            if (banner) {
-                banner.hidden = false;
-                syncBannerVisible = true;
-            }
+            window.location.reload();
         } catch {
             // Ignore polling failures (offline, server restart, etc).
         }
     }
 
-    const syncPollIntervalMs = 180000;
     if (syncToken !== null) {
-        setInterval(checkForSyncUpdates, syncPollIntervalMs);
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                checkForSyncUpdates();
-            }
-        });
         window.addEventListener('focus', () => {
             if (!document.hidden) {
                 checkForSyncUpdates();
