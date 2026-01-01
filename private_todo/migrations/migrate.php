@@ -25,7 +25,7 @@ function column_exists(SQLite3 $db, string $table, string $column): bool {
 }
 
 function ensure_list_schema(SQLite3 $db): void {
-    echo "Ensuring core tables exist (users, lists, list_access, app_meta, todos)...\n";
+    echo "Ensuring core tables exist (users, lists, list_access, app_meta, todo_deletions, todos)...\n";
     $db->exec(
         'CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,6 +64,20 @@ function ensure_list_schema(SQLite3 $db): void {
             value TEXT NOT NULL
         )'
     );
+
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS todo_deletions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            deleted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            list_id INTEGER,
+            list_name TEXT,
+            todo_id INTEGER,
+            todo_title TEXT NOT NULL,
+            owner_id INTEGER,
+            owner_username TEXT
+        )'
+    );
+    $db->exec('CREATE INDEX IF NOT EXISTS idx_todo_deletions_deleted_at ON todo_deletions(deleted_at)');
 
     $db->exec(
         'CREATE TABLE IF NOT EXISTS todos (

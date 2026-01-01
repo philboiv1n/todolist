@@ -12,6 +12,8 @@ use SQLite3;
  */
 class Query
 {
+    private const MAX_TODO_DELETION_LOG_ROWS = 5000;
+
     /** @var ?array<string, bool> */
     private static ?array $todosColumnCache = null;
 
@@ -20,6 +22,9 @@ class Query
 
     /** @var ?bool */
     private static ?bool $appMetaTableCache = null;
+
+    /** @var ?bool */
+    private static ?bool $todoDeletionsTableCache = null;
 
     // --- USERS ---
 
@@ -521,9 +526,194 @@ class Query
         return $exists;
     }
 
+    private static function todoDeletionsTableExists(SQLite3 $db): bool
+    {
+        if (self::$todoDeletionsTableCache !== null) {
+            return self::$todoDeletionsTableCache;
+        }
+
+        $stmt = $db->prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'todo_deletions' LIMIT 1");
+        $res = $stmt->execute();
+        $exists = (bool)$res->fetchArray(SQLITE3_ASSOC);
+        self::$todoDeletionsTableCache = $exists;
+        return $exists;
+    }
+
+    public static function todoDeletionsSupported(SQLite3 $db): bool
+    {
+        return self::todoDeletionsTableExists($db);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function getRecentTodoDeletions(SQLite3 $db, int $limit = 200): array
+    {
+        if (!self::todoDeletionsTableExists($db) || $limit <= 0) {
+            return [];
+        }
+
+        $stmt = $db->prepare(
+            'SELECT deleted_at, list_id, list_name, todo_title, owner_id, owner_username
+             FROM todo_deletions
+             ORDER BY deleted_at DESC, id DESC
+             LIMIT :lim'
+        );
+        $stmt->bindValue(':lim', $limit, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+
+        $rows = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private static function fetchTodoDeletionRowsByList(SQLite3 $db, int $listId, bool $onlyDone): array
+    {
+        $sql = "
+            SELECT
+                todos.id AS todo_id,
+                todos.title AS todo_title,
+                todos.user_id AS owner_id,
+                lists.id AS list_id,
+                lists.name AS list_name,
+                users.username AS owner_username
+            FROM todos
+            LEFT JOIN lists ON lists.id = todos.list_id
+            LEFT JOIN users ON users.id = todos.user_id
+            WHERE todos.list_id = :lid
+        ";
+        if ($onlyDone) {
+            $sql .= " AND todos.is_done = 1";
+        }
+
+        $stmt = $db->prepare($sql);
+        $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+
+        $rows = [];
+        while ($row = $res->fetchArray(SQLITE3_ASSOC)) {
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+
+    /**
+     * @return ?array<string, mixed>
+     */
+    private static function fetchTodoDeletionRowById(SQLite3 $db, int $todoId): ?array
+    {
+        $stmt = $db->prepare(
+            "SELECT
+                todos.id AS todo_id,
+                todos.title AS todo_title,
+                todos.user_id AS owner_id,
+                lists.id AS list_id,
+                lists.name AS list_name,
+                users.username AS owner_username
+             FROM todos
+             LEFT JOIN lists ON lists.id = todos.list_id
+             LEFT JOIN users ON users.id = todos.user_id
+             WHERE todos.id = :tid
+             LIMIT 1"
+        );
+        $stmt->bindValue(':tid', $todoId, SQLITE3_INTEGER);
+        $res = $stmt->execute();
+        $row = $res->fetchArray(SQLITE3_ASSOC);
+        return $row ?: null;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private static function logTodoDeletions(SQLite3 $db, array $rows): void
+    {
+        if (!self::todoDeletionsTableExists($db) || empty($rows)) {
+            return;
+        }
+
+        $stmt = $db->prepare(
+            'INSERT INTO todo_deletions (list_id, list_name, todo_id, todo_title, owner_id, owner_username)
+             VALUES (:lid, :lname, :tid, :title, :oid, :ou)'
+        );
+
+        foreach ($rows as $row) {
+            $listId = isset($row['list_id']) ? (int)$row['list_id'] : null;
+            if ($listId !== null && $listId > 0) {
+                $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
+            } else {
+                $stmt->bindValue(':lid', null, SQLITE3_NULL);
+            }
+
+            $listName = $row['list_name'] ?? null;
+            if (is_string($listName) && $listName !== '') {
+                $stmt->bindValue(':lname', $listName, SQLITE3_TEXT);
+            } else {
+                $stmt->bindValue(':lname', null, SQLITE3_NULL);
+            }
+
+            $todoId = isset($row['todo_id']) ? (int)$row['todo_id'] : null;
+            if ($todoId !== null && $todoId > 0) {
+                $stmt->bindValue(':tid', $todoId, SQLITE3_INTEGER);
+            } else {
+                $stmt->bindValue(':tid', null, SQLITE3_NULL);
+            }
+
+            $title = (string)($row['todo_title'] ?? '');
+            $stmt->bindValue(':title', $title, SQLITE3_TEXT);
+
+            $ownerId = $row['owner_id'] ?? null;
+            if (is_int($ownerId)) {
+                $stmt->bindValue(':oid', $ownerId, SQLITE3_INTEGER);
+            } elseif (is_string($ownerId) && ctype_digit($ownerId)) {
+                $stmt->bindValue(':oid', (int)$ownerId, SQLITE3_INTEGER);
+            } else {
+                $stmt->bindValue(':oid', null, SQLITE3_NULL);
+            }
+
+            $ownerUsername = $row['owner_username'] ?? null;
+            if (is_string($ownerUsername) && $ownerUsername !== '') {
+                $stmt->bindValue(':ou', $ownerUsername, SQLITE3_TEXT);
+            } else {
+                $stmt->bindValue(':ou', null, SQLITE3_NULL);
+            }
+
+            $stmt->execute();
+        }
+
+        self::pruneTodoDeletions($db, self::MAX_TODO_DELETION_LOG_ROWS);
+    }
+
+    private static function pruneTodoDeletions(SQLite3 $db, int $maxRows): void
+    {
+        if (!self::todoDeletionsTableExists($db) || $maxRows <= 0) {
+            return;
+        }
+
+        $maxRows = (int)$maxRows;
+        $sql = "
+            DELETE FROM todo_deletions
+            WHERE id NOT IN (
+                SELECT id
+                FROM todo_deletions
+                ORDER BY deleted_at DESC, id DESC
+                LIMIT {$maxRows}
+            )
+        ";
+        $db->exec($sql);
+    }
+
     /** Delete a todo by ID. */
     public static function deleteTodo(SQLite3 $db, int $todoId): void
     {
+        $row = self::fetchTodoDeletionRowById($db, $todoId);
+        if ($row) {
+            self::logTodoDeletions($db, [$row]);
+        }
         $stmt = $db->prepare('DELETE FROM todos WHERE id = :id');
         $stmt->bindValue(':id', $todoId, SQLITE3_INTEGER);
         $stmt->execute();
@@ -804,6 +994,8 @@ class Query
     /** Delete all completed todos for a list. */
     public static function clearCompletedTodos(SQLite3 $db, int $listId): void
     {
+        $rows = self::fetchTodoDeletionRowsByList($db, $listId, true);
+        self::logTodoDeletions($db, $rows);
         $stmt = $db->prepare('DELETE FROM todos WHERE list_id = :lid AND is_done = 1');
         $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
         $stmt->execute();
@@ -813,6 +1005,8 @@ class Query
     /** Delete a list and all related rows (todos + access). */
     public static function deleteListAndTodos(SQLite3 $db, int $listId): void
     {
+        $rows = self::fetchTodoDeletionRowsByList($db, $listId, false);
+        self::logTodoDeletions($db, $rows);
         $stmt = $db->prepare('DELETE FROM todos WHERE list_id = :lid');
         $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
         $stmt->execute();

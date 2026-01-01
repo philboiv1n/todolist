@@ -48,8 +48,9 @@ require __DIR__ . '/partials/layout/header.view.php';
             </div>
         <?php endif; ?>
 
-        <div class="uk-margin">
-            <a class="uk-button uk-button-default uk-button-small" href="admin_attempts.php">Login attempts</a>
+        <div class="uk-flex uk-flex-wrap uk-margin">
+            <a class="uk-button uk-button-default uk-button-small uk-margin-small-right" href="admin_attempts.php">Login attempts</a>
+            <a class="uk-button uk-button-default uk-button-small" href="admin_deletions.php">Deleted tasks log</a>
         </div>
 
         <div class="uk-grid-small uk-child-width-1-1" uk-grid>
