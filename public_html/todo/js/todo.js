@@ -212,6 +212,16 @@
                 checkForSyncUpdates();
             }
         });
+        window.addEventListener('focus', () => {
+            if (!document.hidden) {
+                checkForSyncUpdates();
+            }
+        });
+        window.addEventListener('pageshow', () => {
+            if (!document.hidden) {
+                checkForSyncUpdates();
+            }
+        });
     }
 
     function todoIdFromCheckboxId(id) {

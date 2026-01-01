@@ -165,6 +165,6 @@ require __DIR__ . '/partials/layout/footer.view.php';
 
 <script src="js/uikit.min.js" defer></script>
 <script src="js/uikit-icons.min.js" defer></script>
-<script src="js/todo.js" defer></script>
+<script src="js/todo.js?v=<?php echo \TodoApp\Security::h(rawurlencode(TODO_APP_VERSION)); ?>" defer></script>
 </body>
 </html>
