@@ -58,8 +58,7 @@ class Query
     /**
      * Return lists the user has access to, including an access flag (`can_edit`).
      *
-     * Also computes a helper flag (`is_personal`) so the personal list can be
-     * sorted first.
+     * Also computes a helper flag (`is_personal`) for reference.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -89,7 +88,7 @@ class Query
              FROM lists
              INNER JOIN list_access ON list_access.list_id = lists.id
              WHERE list_access.user_id = :uid
-             ORDER BY is_personal DESC, {$sortOrderClause} lists.name"
+             ORDER BY {$sortOrderClause} lists.name"
         );
         $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
         $res = $stmt->execute();

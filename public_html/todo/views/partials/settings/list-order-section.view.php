@@ -11,13 +11,13 @@
             <p>List ordering is not enabled yet. Run the migration script to enable it.</p>
         </div>
     <?php elseif (empty($orderedLists)): ?>
-        <p class="uk-text-muted">No other lists to reorder yet.</p>
+        <p class="uk-text-muted">No lists to reorder yet.</p>
     <?php else: ?>
         <p class="uk-text-meta uk-margin-small">
-            Reorder how lists appear on the home page. Your personal list stays pinned at the top.
+            Reorder how lists appear on the home page.
         </p>
 
-        <ul class="uk-list uk-list-divider uk-margin-small-top">
+        <ul class="uk-list uk-list-divider uk-margin-small-top todo-list-order">
             <?php foreach ($orderedLists as $orderedList): ?>
                 <?php
                 $orderedListId = (int)($orderedList['id'] ?? 0);

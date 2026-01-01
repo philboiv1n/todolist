@@ -113,12 +113,10 @@ class SettingsController
         $reorderableLists = [];
         $reorderableIds = [];
         foreach ($lists as $list) {
-            if (empty($list['is_personal'])) {
-                $listId = (int)($list['id'] ?? 0);
-                if ($listId > 0) {
-                    $reorderableLists[] = $list;
-                    $reorderableIds[] = $listId;
-                }
+            $listId = (int)($list['id'] ?? 0);
+            if ($listId > 0) {
+                $reorderableLists[] = $list;
+                $reorderableIds[] = $listId;
             }
         }
         $count = count($reorderableIds);
@@ -329,9 +327,7 @@ class SettingsController
         $lists = Query::getAccessibleLists($this->db, $this->currentUserId);
         $reorderableIds = [];
         foreach ($lists as $list) {
-            if (empty($list['is_personal'])) {
-                $reorderableIds[] = (int)($list['id'] ?? 0);
-            }
+            $reorderableIds[] = (int)($list['id'] ?? 0);
         }
         $reorderableIds = array_values(array_filter($reorderableIds, static fn(int $id): bool => $id > 0));
         $count = count($reorderableIds);

@@ -233,6 +233,12 @@ a:not(.uk-button):not(.uk-link-reset) {
     overflow: hidden;
 }
 
+/* List ordering */
+.todo-list-order > li:first-child {
+    border-top: 1px solid #e5e5e5;
+    padding-top: 10px;
+}
+
 /* List accordions */
 .todo-details-summary {
     list-style: none;
