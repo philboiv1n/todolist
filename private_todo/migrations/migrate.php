@@ -25,7 +25,7 @@ function column_exists(SQLite3 $db, string $table, string $column): bool {
 }
 
 function ensure_list_schema(SQLite3 $db): void {
-    echo "Ensuring core tables exist (users, lists, list_access, todos)...\n";
+    echo "Ensuring core tables exist (users, lists, list_access, app_meta, todos)...\n";
     $db->exec(
         'CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,6 +55,13 @@ function ensure_list_schema(SQLite3 $db): void {
             PRIMARY KEY (list_id, user_id),
             FOREIGN KEY(list_id) REFERENCES lists(id) ON DELETE CASCADE,
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )'
+    );
+
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS app_meta (
+            meta_key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
         )'
     );
 

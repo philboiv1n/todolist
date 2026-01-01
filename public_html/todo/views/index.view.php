@@ -12,7 +12,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="manifest" href="/site.webmanifest">
 </head>
-<body class="uk-background-muted" data-csrf-token="<?php echo \TodoApp\Security::h($csrfToken); ?>">
+<body class="uk-background-muted" data-csrf-token="<?php echo \TodoApp\Security::h($csrfToken); ?>" data-sync-token="<?php echo \TodoApp\Security::h((string)($syncToken ?? '')); ?>">
 <?php
 $csrf = \TodoApp\Security::h($csrfToken);
 $today = date('Y-m-d');

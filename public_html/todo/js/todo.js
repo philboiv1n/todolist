@@ -32,6 +32,87 @@
         return String(document.body?.dataset?.csrfToken ?? '');
     }
 
+    function getSyncToken() {
+        const raw = document.body?.dataset?.syncToken ?? '';
+        const value = Number.parseInt(raw, 10);
+        return Number.isFinite(value) && value >= 0 ? value : null;
+    }
+
+    function updateSyncToken(nextToken) {
+        const value = Number.parseInt(String(nextToken), 10);
+        if (!Number.isFinite(value) || value < 0) {
+            return;
+        }
+        syncToken = value;
+        if (document.body?.dataset) {
+            document.body.dataset.syncToken = String(value);
+        }
+    }
+
+    function isUserBusy() {
+        const active = document.activeElement;
+        if (!active || active === document.body || active === document.documentElement) {
+            return false;
+        }
+        if (active.isContentEditable) {
+            return true;
+        }
+        const tag = active.tagName;
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    }
+
+    function buildSyncUrl() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('action', 'sync');
+        url.searchParams.set('_', String(Date.now()));
+        return url.toString();
+    }
+
+    let syncBannerVisible = false;
+    let syncToken = getSyncToken();
+
+    let syncBanner = null;
+
+    function ensureSyncBanner() {
+        if (syncBanner) {
+            return syncBanner;
+        }
+
+        const container = document.querySelector('main .uk-container');
+        if (!container) {
+            return null;
+        }
+
+        const banner = document.createElement('div');
+        banner.id = 'sync-refresh-banner';
+        banner.className = 'uk-alert todo-sync-banner';
+        banner.hidden = true;
+
+        const row = document.createElement('div');
+        row.className = 'uk-flex uk-flex-middle uk-flex-left uk-flex-wrap';
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'uk-button uk-button-primary uk-button-small uk-text-normal todo-sync-refresh';
+        button.dataset.action = 'refresh';
+        button.textContent = 'Refresh';
+        button.addEventListener('click', () => {
+            window.location.reload();
+        });
+
+        const text = document.createElement('span');
+        text.className = 'uk-margin-small-left';
+        text.textContent = 'New updates are available.';
+
+        row.appendChild(button);
+        row.appendChild(text);
+        banner.appendChild(row);
+        container.prepend(banner);
+
+        syncBanner = banner;
+        return banner;
+    }
+
     let didWarnListStateSaveFailure = false;
 
     async function persistListExpandedState(listId, isExpanded) {
@@ -68,6 +149,69 @@
         } catch {
             // Ignore (e.g. offline). State will still apply on this page load.
         }
+    }
+
+    async function checkForSyncUpdates() {
+        if (syncToken === null || document.hidden || syncBannerVisible) {
+            return;
+        }
+
+        try {
+            const res = await fetch(buildSyncUrl(), {
+                method: 'GET',
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                cache: 'no-store',
+                credentials: 'same-origin',
+            });
+
+            const text = await res.text();
+            const data = parseJsonResponse(text);
+            if (!data) {
+                return;
+            }
+
+            if (data.redirect) {
+                window.location.href = data.redirect;
+                return;
+            }
+
+            if (!data.ok) {
+                return;
+            }
+
+            const nextToken = Number.parseInt(String(data.token ?? ''), 10);
+            if (!Number.isFinite(nextToken) || nextToken < 0 || nextToken <= syncToken) {
+                return;
+            }
+
+            updateSyncToken(nextToken);
+
+            if (!isUserBusy()) {
+                window.location.reload();
+                return;
+            }
+
+            const banner = ensureSyncBanner();
+            if (banner) {
+                banner.hidden = false;
+                syncBannerVisible = true;
+            }
+        } catch {
+            // Ignore polling failures (offline, server restart, etc).
+        }
+    }
+
+    const syncPollIntervalMs = 180000;
+    if (syncToken !== null) {
+        setInterval(checkForSyncUpdates, syncPollIntervalMs);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                checkForSyncUpdates();
+            }
+        });
     }
 
     function todoIdFromCheckboxId(id) {
@@ -209,6 +353,10 @@
             if (!res.ok || !data.ok) {
                 notify(data.error || `Request failed (HTTP ${res.status}).`, 'danger');
                 return;
+            }
+
+            if (data.sync_token !== undefined) {
+                updateSyncToken(data.sync_token);
             }
 
             // Successful responses must include a list id + HTML for the updated list card.

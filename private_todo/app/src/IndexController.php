@@ -39,6 +39,7 @@ class IndexController
         // - Build view-model for GET rendering
         $this->loadCurrentUser();
         $this->handleLogout();
+        $this->handleSyncRequest();
         $this->handlePost();
 
         $csrfToken = Security::csrfToken();
@@ -47,12 +48,14 @@ class IndexController
         }
 
         $userLists = $this->getPageData();
+        $syncToken = $this->currentUserId ? Query::getAppChangeToken($this->db) : null;
 
         return [
             'currentUserId' => $this->currentUserId,
             'currentUsername' => $this->currentUsername,
             'loginError' => $this->loginError,
             'csrfToken' => $csrfToken,
+            'syncToken' => $syncToken,
             'userLists' => $userLists,
             'currentUser' => $this->currentUser,
             'supportsRecurrence' => Query::todosSupportRecurrence($this->db),
@@ -83,6 +86,28 @@ class IndexController
 
         session_destroy();
         redirect($this->selfPath);
+    }
+
+    private function handleSyncRequest(): void
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
+            return;
+        }
+
+        if (($_GET['action'] ?? '') !== 'sync') {
+            return;
+        }
+
+        if (!$this->currentUserId) {
+            $this->respondJson(['ok' => false, 'redirect' => $this->selfPath], 401);
+        }
+
+        $token = Query::getAppChangeToken($this->db);
+        if ($token === null) {
+            $this->respondJson(['ok' => false, 'error' => 'Sync is not enabled. Run the migration script.'], 400);
+        }
+
+        $this->respondJson(['ok' => true, 'token' => $token]);
     }
 
     private function handlePost(): void
@@ -122,6 +147,7 @@ class IndexController
         if ($action === 'set_list_expanded') {
             $result = $this->handleSetListExpanded();
             if ($wantsJson) {
+                $result['sync_token'] = Query::getAppChangeToken($this->db);
                 $this->respondJson(
                     $result,
                     ($result['ok'] ?? false) ? 200 : 400
@@ -154,6 +180,7 @@ class IndexController
                 'action' => $action,
                 'list_id' => $affectedListId,
                 'html' => $html,
+                'sync_token' => Query::getAppChangeToken($this->db),
             ]);
         }
 

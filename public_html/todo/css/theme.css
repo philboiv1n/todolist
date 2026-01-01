@@ -233,6 +233,24 @@ a:not(.uk-button):not(.uk-link-reset) {
     overflow: hidden;
 }
 
+/* Sync refresh banner */
+.todo-sync-banner[hidden] {
+    display: none !important;
+}
+.todo-sync-banner {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+}
+.todo-sync-banner:not([hidden]) {
+    margin: 8px 0;
+}
+.todo-sync-refresh {
+    font-weight: 400;
+}
+
 /* List accordions */
 .todo-details-summary {
     list-style: none;

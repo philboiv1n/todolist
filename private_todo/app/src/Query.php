@@ -18,6 +18,9 @@ class Query
     /** @var ?array<string, bool> */
     private static ?array $listAccessColumnCache = null;
 
+    /** @var ?bool */
+    private static ?bool $appMetaTableCache = null;
+
     // --- USERS ---
 
     /** Fetch a user row by username. */
@@ -151,6 +154,60 @@ class Query
     }
 
     /**
+     * Return the global sync token for list/todo changes, or null if unsupported.
+     */
+    public static function getAppChangeToken(SQLite3 $db): ?int
+    {
+        if (!self::appMetaTableExists($db)) {
+            return null;
+        }
+
+        $stmt = $db->prepare('SELECT value FROM app_meta WHERE meta_key = :k LIMIT 1');
+        $stmt->bindValue(':k', 'last_change', SQLITE3_TEXT);
+        $res = $stmt->execute();
+        $row = $res->fetchArray(SQLITE3_ASSOC);
+        if (!$row) {
+            return 0;
+        }
+
+        $value = $row['value'] ?? null;
+        if (is_int($value)) {
+            return $value;
+        }
+        if (is_string($value) && $value !== '' && ctype_digit($value)) {
+            return (int)$value;
+        }
+
+        return 0;
+    }
+
+    /**
+     * Update the global sync token after a list/todo change.
+     */
+    public static function touchAppChange(SQLite3 $db): bool
+    {
+        if (!self::appMetaTableExists($db)) {
+            return false;
+        }
+
+        $now = (int)floor(microtime(true) * 1000);
+
+        $stmt = $db->prepare(
+            'INSERT OR IGNORE INTO app_meta (meta_key, value) VALUES (:k, :v)'
+        );
+        $stmt->bindValue(':k', 'last_change', SQLITE3_TEXT);
+        $stmt->bindValue(':v', (string)$now, SQLITE3_TEXT);
+        $stmt->execute();
+
+        $stmt = $db->prepare('UPDATE app_meta SET value = :v WHERE meta_key = :k');
+        $stmt->bindValue(':k', 'last_change', SQLITE3_TEXT);
+        $stmt->bindValue(':v', (string)$now, SQLITE3_TEXT);
+        $stmt->execute();
+
+        return true;
+    }
+
+    /**
      * Check whether a user has access to a list.
      *
      * If `$requireEdit` is true, the access row must also have `can_edit = 1`.
@@ -279,6 +336,7 @@ class Query
         }
 
         $stmt->execute();
+        self::touchAppChange($db);
         return (int)$db->lastInsertRowID();
     }
 
@@ -293,6 +351,7 @@ class Query
         }
         $stmt->bindValue(':id', $todoId, SQLITE3_INTEGER);
         $stmt->execute();
+        self::touchAppChange($db);
     }
 
     /** Toggle a todo's done flag (`is_done`). */
@@ -305,6 +364,7 @@ class Query
         );
         $stmt->bindValue(':id', $todoId, SQLITE3_INTEGER);
         $stmt->execute();
+        self::touchAppChange($db);
     }
 
     /**
@@ -335,6 +395,7 @@ class Query
         $db->exec('BEGIN IMMEDIATE');
         try {
             $stmt->execute();
+            self::touchAppChange($db);
 
             if (!$supportsRecurrence) {
                 $db->exec('COMMIT');
@@ -448,12 +509,26 @@ class Query
         return $cols;
     }
 
+    private static function appMetaTableExists(SQLite3 $db): bool
+    {
+        if (self::$appMetaTableCache !== null) {
+            return self::$appMetaTableCache;
+        }
+
+        $stmt = $db->prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'app_meta' LIMIT 1");
+        $res = $stmt->execute();
+        $exists = (bool)$res->fetchArray(SQLITE3_ASSOC);
+        self::$appMetaTableCache = $exists;
+        return $exists;
+    }
+
     /** Delete a todo by ID. */
     public static function deleteTodo(SQLite3 $db, int $todoId): void
     {
         $stmt = $db->prepare('DELETE FROM todos WHERE id = :id');
         $stmt->bindValue(':id', $todoId, SQLITE3_INTEGER);
         $stmt->execute();
+        self::touchAppChange($db);
     }
 
     /**
@@ -601,6 +676,7 @@ class Query
         $stmt->bindValue(':n', $name, SQLITE3_TEXT);
         $stmt->bindValue(':uid', $creatorId, SQLITE3_INTEGER);
         $stmt->execute();
+        self::touchAppChange($db);
         return (int)$db->lastInsertRowID();
     }
 
@@ -620,6 +696,7 @@ class Query
         $stmt->bindValue(':n', $newName, SQLITE3_TEXT);
         $stmt->bindValue(':id', $listId, SQLITE3_INTEGER);
         $stmt->execute();
+        self::touchAppChange($db);
     }
 
     /** Grant or update access for a user to a list. */
@@ -651,6 +728,8 @@ class Query
         $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
         $stmt->bindValue(':ce', $canEdit ? 1 : 0, SQLITE3_INTEGER);
         $stmt->execute();
+
+        self::touchAppChange($db);
     }
 
     /**
@@ -689,6 +768,7 @@ class Query
                 $stmt->execute();
             }
 
+            self::touchAppChange($db);
             $db->exec('COMMIT');
         } catch (\Throwable $e) {
             $db->exec('ROLLBACK');
@@ -719,6 +799,7 @@ class Query
         $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
         $stmt->bindValue(':uid', $userId, SQLITE3_INTEGER);
         $stmt->execute();
+        self::touchAppChange($db);
     }
 
     /** Delete all completed todos for a list. */
@@ -727,6 +808,7 @@ class Query
         $stmt = $db->prepare('DELETE FROM todos WHERE list_id = :lid AND is_done = 1');
         $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
         $stmt->execute();
+        self::touchAppChange($db);
     }
 
     /** Delete a list and all related rows (todos + access). */
@@ -743,6 +825,8 @@ class Query
         $stmt = $db->prepare('DELETE FROM lists WHERE id = :lid');
         $stmt->bindValue(':lid', $listId, SQLITE3_INTEGER);
         $stmt->execute();
+
+        self::touchAppChange($db);
     }
 
     /**
