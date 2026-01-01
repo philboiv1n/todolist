@@ -67,6 +67,7 @@ $overdueCutoff = (new DateTimeImmutable('today'))->modify('-3 days');
                                     $repeatLabel = \TodoApp\Security::h($repeatLabel);
                                 }
                             }
+                            $deleteConfirmAttr = $isDone ? '' : ' onclick="return confirm(\'Delete this task?\');"';
                             ?>
                             <li>
                                 <?php if ($canEdit): ?>
@@ -131,7 +132,7 @@ $overdueCutoff = (new DateTimeImmutable('today'))->modify('-3 days');
                                             <button
                                                 type="submit"
                                                 class="uk-button uk-button-link uk-text-danger uk-margin-xsmall-top"
-                                                onclick="return confirm('Delete this task?');"
+                                                <?php echo $deleteConfirmAttr; ?>
                                                 aria-label="Delete task: <?php echo $todoTitle; ?>"
                                                 title="Delete"
                                             ><span uk-icon="close"></span></button>
