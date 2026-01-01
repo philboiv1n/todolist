@@ -11,21 +11,21 @@
         <div class="uk-margin">
             <label class="uk-form-label" for="current-password">Current password</label>
             <div class="uk-form-controls">
-                <input id="current-password" class="uk-input" type="password" name="current_password" autocomplete="current-password" required>
+                <input id="current-password" class="uk-input" type="password" name="current_password" autocomplete="current-password" maxlength="<?php echo \TodoApp\Security::MAX_INPUT_LENGTH; ?>" required>
             </div>
         </div>
 
         <div class="uk-margin">
             <label class="uk-form-label" for="new-password">New password</label>
             <div class="uk-form-controls">
-                <input id="new-password" class="uk-input" type="password" name="new_password" autocomplete="new-password" required>
+                <input id="new-password" class="uk-input" type="password" name="new_password" autocomplete="new-password" maxlength="<?php echo \TodoApp\Security::MAX_INPUT_LENGTH; ?>" required>
             </div>
         </div>
 
         <div class="uk-margin">
             <label class="uk-form-label" for="new-password-confirm">Confirm new password</label>
             <div class="uk-form-controls">
-                <input id="new-password-confirm" class="uk-input" type="password" name="new_password_confirm" autocomplete="new-password" required>
+                <input id="new-password-confirm" class="uk-input" type="password" name="new_password_confirm" autocomplete="new-password" maxlength="<?php echo \TodoApp\Security::MAX_INPUT_LENGTH; ?>" required>
             </div>
         </div>
 

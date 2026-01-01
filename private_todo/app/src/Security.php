@@ -13,10 +13,26 @@ class Security
      * on request flow and validation.
      */
 
+    public const MAX_INPUT_LENGTH = 256;
+
     /** HTML-escape a string for safe output in templates. */
     public static function h(string $s): string
     {
         return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+    }
+
+    /** Return true if the string exceeds the max length. */
+    public static function exceedsMaxLength(string $value, int $maxLength = self::MAX_INPUT_LENGTH): bool
+    {
+        if ($maxLength <= 0) {
+            return false;
+        }
+
+        if (function_exists('mb_strlen')) {
+            return mb_strlen($value, 'UTF-8') > $maxLength;
+        }
+
+        return strlen($value) > $maxLength;
     }
 
     /**

@@ -57,14 +57,14 @@ $editableLists = array_values(array_filter(
                             <div class="uk-margin">
                                 <label class="uk-form-label" for="username">Username</label>
                                 <div class="uk-form-controls">
-                                    <input id="username" class="uk-input" type="text" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+                                    <input id="username" class="uk-input" type="text" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="<?php echo \TodoApp\Security::MAX_INPUT_LENGTH; ?>" required>
                                 </div>
                             </div>
 
                             <div class="uk-margin">
                                 <label class="uk-form-label" for="password">Password</label>
                                 <div class="uk-form-controls">
-                                    <input id="password" class="uk-input" type="password" name="password" autocomplete="current-password" required>
+                                    <input id="password" class="uk-input" type="password" name="password" autocomplete="current-password" maxlength="<?php echo \TodoApp\Security::MAX_INPUT_LENGTH; ?>" required>
                                 </div>
                             </div>
 
@@ -106,7 +106,7 @@ $editableLists = array_values(array_filter(
                                 <div class="uk-width-expand@s">
                                     <label class="uk-form-label" for="new-title">Task</label>
                                     <div class="uk-form-controls">
-                                        <input id="new-title" class="uk-input" type="text" name="title" required>
+                                        <input id="new-title" class="uk-input" type="text" name="title" maxlength="<?php echo \TodoApp\Security::MAX_INPUT_LENGTH; ?>" required>
                                     </div>
                                 </div>
 

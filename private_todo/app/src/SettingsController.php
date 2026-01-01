@@ -178,6 +178,10 @@ class SettingsController
             $this->error = 'All password fields are required.';
             return;
         }
+        if (Security::exceedsMaxLength($current) || Security::exceedsMaxLength($new) || Security::exceedsMaxLength($confirm)) {
+            $this->error = 'Password is too long (max 256 characters).';
+            return;
+        }
         if ($new !== $confirm) {
             $this->error = 'New passwords do not match.';
             return;
@@ -203,6 +207,10 @@ class SettingsController
             $this->error = 'List name is required.';
             return;
         }
+        if (Security::exceedsMaxLength($name)) {
+            $this->error = 'List name is too long (max 256 characters).';
+            return;
+        }
 
         $newListId = Query::createList($this->db, $name, $this->currentUserId);
         Query::addOrUpdateListAccess($this->db, $newListId, $this->currentUserId, true);
@@ -216,6 +224,10 @@ class SettingsController
 
         if ($listId <= 0 || $newName === '') {
             $this->error = 'List ID and new name are required.';
+            return;
+        }
+        if (Security::exceedsMaxLength($newName)) {
+            $this->error = 'List name is too long (max 256 characters).';
             return;
         }
 

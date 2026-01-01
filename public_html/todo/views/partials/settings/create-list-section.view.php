@@ -12,7 +12,7 @@
             <div class="uk-width-expand@s">
                 <label class="uk-form-label" for="new-owned-list-name">List name</label>
                 <div class="uk-form-controls">
-                    <input id="new-owned-list-name" class="uk-input" type="text" name="name" required>
+                    <input id="new-owned-list-name" class="uk-input" type="text" name="name" maxlength="<?php echo \TodoApp\Security::MAX_INPUT_LENGTH; ?>" required>
                 </div>
             </div>
             <div class="uk-width-auto@s uk-flex uk-flex-bottom">
@@ -21,4 +21,3 @@
         </div>
     </form>
 </section>
-

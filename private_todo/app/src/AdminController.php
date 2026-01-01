@@ -109,6 +109,10 @@ class AdminController
             $this->error = 'Username and password are required.';
             return;
         }
+        if (Security::exceedsMaxLength($username) || Security::exceedsMaxLength($password)) {
+            $this->error = 'Username or password is too long (max 256 characters).';
+            return;
+        }
         if (Query::usernameExists($this->db, $username)) {
             $this->error = 'Username already exists.';
             return;
@@ -127,6 +131,10 @@ class AdminController
             $this->error = 'List name is required.';
             return;
         }
+        if (Security::exceedsMaxLength($name)) {
+            $this->error = 'List name is too long (max 256 characters).';
+            return;
+        }
 
         $newListId = Query::createList($this->db, $name, (int)$this->currentUser['id']);
         Query::addOrUpdateListAccess($this->db, $newListId, (int)$this->currentUser['id'], true);
@@ -140,6 +148,10 @@ class AdminController
 
         if ($listId <= 0 || $newName === '') {
             $this->error = 'List ID and new name are required.';
+            return;
+        }
+        if (Security::exceedsMaxLength($newName)) {
+            $this->error = 'List name is too long (max 256 characters).';
             return;
         }
         if (!Query::listExists($this->db, $listId)) {
@@ -187,6 +199,10 @@ class AdminController
 
         if ($userId <= 0 || $newPass === '') {
             $this->error = 'User and new password required.';
+            return;
+        }
+        if (Security::exceedsMaxLength($newPass)) {
+            $this->error = 'Password is too long (max 256 characters).';
             return;
         }
 

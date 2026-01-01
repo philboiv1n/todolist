@@ -41,7 +41,7 @@ $newPasswordId = "new-password-{$userId}";
                         <div class="uk-width-expand@s">
                             <label class="uk-form-label" for="<?php echo $newPasswordId; ?>">New password</label>
                             <div class="uk-form-controls">
-                                <input id="<?php echo $newPasswordId; ?>" class="uk-input uk-form-small" type="password" name="new_password" autocomplete="new-password" required>
+                                <input id="<?php echo $newPasswordId; ?>" class="uk-input uk-form-small" type="password" name="new_password" autocomplete="new-password" maxlength="<?php echo \TodoApp\Security::MAX_INPUT_LENGTH; ?>" required>
                             </div>
                         </div>
                         <div class="uk-width-auto@s uk-flex uk-flex-bottom">

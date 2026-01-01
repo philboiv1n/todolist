@@ -18,6 +18,7 @@ class IndexController
     private ?int $currentUserId;
     private ?string $currentUsername = null;
     private ?string $loginError = null;
+    private ?string $actionError = null;
 
     public function __construct(SQLite3 $db)
     {
@@ -167,7 +168,7 @@ class IndexController
 
         if ($wantsJson) {
             if (!$affectedListId) {
-                $this->respondJson(['ok' => false, 'error' => 'Action failed.'], 400);
+                $this->respondJson(['ok' => false, 'error' => $this->actionError ?? 'Action failed.'], 400);
             }
 
             $html = $this->renderListCardHtml($affectedListId);
@@ -241,6 +242,8 @@ class IndexController
             $this->loginError = 'Security check failed. Please refresh and try again.';
         } elseif (Security::isLoginRateLimited($this->db, $clientIp)) {
             $this->loginError = 'Too many login attempts. Please wait a minute and try again.';
+        } elseif (Security::exceedsMaxLength($username) || Security::exceedsMaxLength($password)) {
+            $this->loginError = 'Username or password is too long (max 256 characters).';
         } elseif ($username === '' || $password === '') {
             $this->loginError = 'Please enter username and password.';
         } else {
@@ -269,6 +272,10 @@ class IndexController
         $listId = (int)($_POST['list_id'] ?? 0);
 
         if ($title === '' || $listId <= 0) {
+            return null;
+        }
+        if (Security::exceedsMaxLength($title)) {
+            $this->actionError = 'Task title is too long (max 256 characters).';
             return null;
         }
         if (!Query::userHasListAccess($this->db, $this->currentUserId, $listId, true)) {

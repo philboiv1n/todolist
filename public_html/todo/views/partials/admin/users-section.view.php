@@ -13,14 +13,14 @@
             <div>
                 <label class="uk-form-label" for="new-username">Username</label>
                 <div class="uk-form-controls">
-                    <input id="new-username" class="uk-input" type="text" name="username" autocapitalize="none" spellcheck="false" required>
+                    <input id="new-username" class="uk-input" type="text" name="username" autocapitalize="none" spellcheck="false" maxlength="<?php echo \TodoApp\Security::MAX_INPUT_LENGTH; ?>" required>
                 </div>
             </div>
 
             <div>
                 <label class="uk-form-label" for="new-password">Password</label>
                 <div class="uk-form-controls">
-                    <input id="new-password" class="uk-input" type="password" name="password" autocomplete="new-password" required>
+                    <input id="new-password" class="uk-input" type="password" name="password" autocomplete="new-password" maxlength="<?php echo \TodoApp\Security::MAX_INPUT_LENGTH; ?>" required>
                 </div>
             </div>
 

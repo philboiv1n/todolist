@@ -53,7 +53,7 @@ $access = $listAccess[$listId] ?? [];
 	                        <div class="uk-width-expand@s">
 	                            <label class="uk-form-label" for="rename-list-<?php echo $listId; ?>">New name</label>
 	                            <div class="uk-form-controls">
-	                                <input id="rename-list-<?php echo $listId; ?>" class="uk-input" type="text" name="name" value="<?php echo $listName; ?>" required>
+                                <input id="rename-list-<?php echo $listId; ?>" class="uk-input" type="text" name="name" value="<?php echo $listName; ?>" maxlength="<?php echo \TodoApp\Security::MAX_INPUT_LENGTH; ?>" required>
 	                            </div>
 	                        </div>
 	                        <div class="uk-width-auto@s uk-flex uk-flex-bottom">
