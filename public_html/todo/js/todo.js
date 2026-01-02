@@ -422,6 +422,7 @@
         const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
         if (!isExpanded) {
             toggle.setAttribute('aria-expanded', 'true');
+            toggle.setAttribute('title', 'Tap title to close');
             const titleInput = form.querySelector('input[name="title"]');
             if (titleInput instanceof HTMLInputElement) {
                 titleInput.focus();
@@ -429,6 +430,7 @@
             }
         } else {
             toggle.setAttribute('aria-expanded', 'false');
+            toggle.setAttribute('title', 'Tap title to edit');
             toggle.focus();
         }
     });
@@ -458,6 +460,7 @@
         }
 
         toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('title', 'Tap title to edit');
         toggle.focus();
     });
 

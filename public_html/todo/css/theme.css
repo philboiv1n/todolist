@@ -77,8 +77,8 @@ a:not(.uk-button):not(.uk-link-reset) {
     max-width: 100%;
 }
 .todo-title-input:focus-visible {
-    outline: 2px dotted var(--todo-accent);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(250, 100, 0, 0.2);
 }
 .todo-item-title-done {
     text-decoration: line-through;
@@ -101,17 +101,28 @@ a:not(.uk-button):not(.uk-link-reset) {
     cursor: pointer;
 }
 .todo-edit-toggle:focus-visible {
-    outline: 2px dotted var(--todo-accent);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(250, 100, 0, 0.2);
+    border-radius: 8px;
 }
 .todo-edit-fields {
     margin-top: 6px;
+    padding: 6px 8px 4px;
 }
 .js-enabled .todo-edit-fields {
     display: none;
 }
 .js-enabled .todo-edit-toggle[aria-expanded="true"] + .todo-edit-fields {
     display: block;
+}
+.todo-edit-label {
+    margin-right: 6px;
+}
+.todo-edit-fields .todo-item-due {
+    margin-top: 8px;
+}
+.todo-edit-fields .todo-item-repeat {
+    margin-top: 6px;
 }
 
 .todo-due-date-input {
@@ -125,13 +136,17 @@ a:not(.uk-button):not(.uk-link-reset) {
     line-height: 28px;
 }
 .todo-due-date-input:focus-visible {
-    outline: 2px dotted var(--todo-accent);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(250, 100, 0, 0.2);
 }
 .todo-repeat-select {
     display: inline-block;
     width: auto;
     max-width: 100%;
+}
+.todo-repeat-select:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(250, 100, 0, 0.2);
 }
 
 /* Make UIkit "muted/meta" text readable on light backgrounds. */

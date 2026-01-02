@@ -112,7 +112,7 @@ $supportsRecurrence = isset($supportsRecurrence) ? (bool)$supportsRecurrence : f
                                                 aria-label="Toggle task: <?php echo $todoTitle; ?>"
                                             >
                                             <div class="uk-flex-1 uk-margin-small-left">
-                                                <button type="button" class="todo-edit-toggle" data-todo-edit-toggle="1" aria-expanded="false">
+                                                <button type="button" class="todo-edit-toggle" data-todo-edit-toggle="1" aria-expanded="false" title="Tap title to edit">
                                                     <span class="todo-item-title uk-text-break<?php echo $isDone ? ' todo-item-title-done' : ''; ?>">
                                                         <?php echo $todoTitle; ?>
                                                     </span>
@@ -140,6 +140,7 @@ $supportsRecurrence = isset($supportsRecurrence) ? (bool)$supportsRecurrence : f
                                                     >
 
                                                     <span class="todo-item-due uk-text-meta uk-display-block">
+                                                        <span class="todo-edit-label">Date:</span>
                                                         <input
                                                             id="todo-due-<?php echo $todoId; ?>"
                                                             class="todo-due-date-input uk-input uk-form-small"
