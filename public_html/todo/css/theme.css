@@ -115,6 +115,12 @@ a:not(.uk-button):not(.uk-link-reset) {
 .js-enabled .todo-edit-toggle[aria-expanded="true"] + .todo-edit-fields {
     display: block;
 }
+@media (max-width: 640px) {
+    .todo-edit-fields .uk-input,
+    .todo-edit-fields .uk-select {
+        font-size: 16px;
+    }
+}
 .todo-edit-label {
     margin-right: 6px;
 }
