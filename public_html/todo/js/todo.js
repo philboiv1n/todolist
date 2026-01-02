@@ -1,6 +1,8 @@
 (() => {
     'use strict';
 
+    document.documentElement.classList.add('js-enabled');
+
     // Intercept and AJAX-submit any form marked with `data-ajax="1"`.
     // This is progressive enhancement: without JS, forms still submit normally and the page reloads.
     const ajaxFormSelector = 'form[data-ajax="1"]';
@@ -242,6 +244,9 @@
         }
         form.dataset.submitting = '1';
 
+        const activeElement = document.activeElement;
+        const activeElementId = activeElement instanceof HTMLElement ? activeElement.id : null;
+
         // Important: use the *attribute* value, not `form.action`.
         // If the form contains an input named "action", some browsers expose it as `form.action`,
         // which breaks URL resolution (you'll see "[object HTMLInputElement]" requests).
@@ -316,7 +321,7 @@
             }
 
             let didReplace = false;
-            if ((action === 'toggle' || action === 'update_due_date') && todoId && current) {
+            if ((action === 'toggle' || action === 'update_due_date' || action === 'update_todo') && todoId && current) {
                 didReplace = applyTodoUpdatePreservingOrder(current, replacement, todoId);
             }
 
@@ -356,10 +361,20 @@
                 if (checkbox) {
                     checkbox.focus();
                 }
-            } else if (action === 'update_due_date' && todoId) {
-                const input = document.getElementById(`todo-due-${todoId}`);
-                if (input) {
-                    input.focus();
+            } else if ((action === 'update_due_date' || action === 'update_todo') && todoId) {
+                if (activeElementId) {
+                    const field = document.getElementById(activeElementId);
+                    if (field && field.offsetParent !== null) {
+                        field.focus();
+                        return;
+                    }
+                }
+
+                if (action === 'update_due_date') {
+                    const input = document.getElementById(`todo-due-${todoId}`);
+                    if (input) {
+                        input.focus();
+                    }
                 }
             }
         } catch (err) {
@@ -386,6 +401,64 @@
         // Prevent normal form submission (full page reload) and do the AJAX path instead.
         event.preventDefault();
         submitAjaxForm(form);
+    });
+
+    document.addEventListener('click', (event) => {
+        const toggle = event.target.closest('[data-todo-edit-toggle]');
+        if (!(toggle instanceof HTMLElement)) {
+            return;
+        }
+
+        const todoItem = toggle.closest('[data-todo-id]');
+        if (!todoItem) {
+            return;
+        }
+
+        const form = todoItem.querySelector('.todo-edit-fields');
+        if (!(form instanceof HTMLElement)) {
+            return;
+        }
+
+        const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+        if (!isExpanded) {
+            toggle.setAttribute('aria-expanded', 'true');
+            const titleInput = form.querySelector('input[name="title"]');
+            if (titleInput instanceof HTMLInputElement) {
+                titleInput.focus();
+                titleInput.select();
+            }
+        } else {
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.focus();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) {
+            return;
+        }
+
+        const todoItem = target.closest('[data-todo-id]');
+        if (!todoItem) {
+            return;
+        }
+
+        const toggle = todoItem.querySelector('[data-todo-edit-toggle]');
+        if (!(toggle instanceof HTMLElement)) {
+            return;
+        }
+
+        if (toggle.getAttribute('aria-expanded') !== 'true') {
+            return;
+        }
+
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.focus();
     });
 
     document.addEventListener(

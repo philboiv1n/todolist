@@ -358,6 +358,44 @@ class Query
         self::touchAppChange($db);
     }
 
+    /** Update a todo's title, due date, and repeat rule by ID. */
+    public static function updateTodoDetails(
+        SQLite3 $db,
+        int $todoId,
+        string $title,
+        ?string $dueDate,
+        ?string $repeatRule
+    ): void
+    {
+        $columns = self::getTodosColumns($db);
+        $updates = ['title = :title', 'due_date = :due_date'];
+        $supportsRecurrence = isset($columns['repeat_rule']);
+        if ($supportsRecurrence) {
+            $updates[] = 'repeat_rule = :repeat_rule';
+        }
+
+        $stmt = $db->prepare('UPDATE todos SET ' . implode(', ', $updates) . ' WHERE id = :id');
+        $stmt->bindValue(':title', $title, SQLITE3_TEXT);
+
+        if ($dueDate === null || $dueDate === '') {
+            $stmt->bindValue(':due_date', null, SQLITE3_NULL);
+        } else {
+            $stmt->bindValue(':due_date', $dueDate, SQLITE3_TEXT);
+        }
+
+        if ($supportsRecurrence) {
+            if ($repeatRule === null || $repeatRule === '') {
+                $stmt->bindValue(':repeat_rule', null, SQLITE3_NULL);
+            } else {
+                $stmt->bindValue(':repeat_rule', $repeatRule, SQLITE3_TEXT);
+            }
+        }
+
+        $stmt->bindValue(':id', $todoId, SQLITE3_INTEGER);
+        $stmt->execute();
+        self::touchAppChange($db);
+    }
+
     /** Toggle a todo's done flag (`is_done`). */
     public static function toggleTodoDone(SQLite3 $db, int $todoId): void
     {

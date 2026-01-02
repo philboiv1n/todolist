@@ -7,5 +7,5 @@ services:
     working_dir: /app
     command: ["apache2-foreground"]
     ports:
-      - "127.0.0.1:8080:80"
+      - "8080:80"
     restart: unless-stopped

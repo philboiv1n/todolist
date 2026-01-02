@@ -164,6 +164,8 @@ class IndexController
             $affectedListId = $this->handleDeleteTodo();
         } elseif ($action === 'update_due_date') {
             $affectedListId = $this->handleUpdateDueDate();
+        } elseif ($action === 'update_todo') {
+            $affectedListId = $this->handleUpdateTodo();
         }
 
         if ($wantsJson) {
@@ -333,27 +335,81 @@ class IndexController
             return null;
         }
 
-        $rawDueDate = trim((string)($_POST['due_date'] ?? ''));
-        if ($rawDueDate === '') {
-            $dueDate = null;
-        } else {
-            $dateStr = substr($rawDueDate, 0, 10);
-            if (preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $dateStr) !== 1) {
-                return null;
-            }
-
-            $dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $dateStr);
-            $errors = \DateTimeImmutable::getLastErrors();
-            if (!$dt || ($errors && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
-                return null;
-            }
-
-            $dueDate = $dt->format('Y-m-d');
+        $error = null;
+        $dueDate = $this->parseDueDateInput((string)($_POST['due_date'] ?? ''), $error);
+        if ($error !== null) {
+            $this->actionError = $error;
+            return null;
         }
 
         Query::updateTodoDueDate($this->db, $id, $dueDate);
         $listId = (int)($todo['list_id'] ?? 0);
         return $listId > 0 ? $listId : null;
+    }
+
+    private function handleUpdateTodo(): ?int
+    {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id <= 0) {
+            return null;
+        }
+
+        $todo = Query::fetchAccessibleTodo($this->db, $this->currentUserId, $id);
+        if (!$todo) {
+            return null;
+        }
+
+        $title = trim((string)($_POST['title'] ?? ''));
+        if ($title === '') {
+            $this->actionError = 'Task title cannot be empty.';
+            return null;
+        }
+        if (Security::exceedsMaxLength($title)) {
+            $this->actionError = 'Task title is too long (max 256 characters).';
+            return null;
+        }
+
+        $error = null;
+        $dueDate = $this->parseDueDateInput((string)($_POST['due_date'] ?? ''), $error);
+        if ($error !== null) {
+            $this->actionError = $error;
+            return null;
+        }
+
+        if (Query::todosSupportRecurrence($this->db)) {
+            $repeatPreset = trim((string)($_POST['repeat'] ?? ''));
+            $repeatRule = Recurrence::buildRuleFromPreset($repeatPreset, $dueDate);
+        } else {
+            $repeatRule = $todo['repeat_rule'] ?? null;
+            $repeatRule = is_string($repeatRule) ? $repeatRule : null;
+        }
+
+        Query::updateTodoDetails($this->db, $id, $title, $dueDate, $repeatRule);
+        $listId = (int)($todo['list_id'] ?? 0);
+        return $listId > 0 ? $listId : null;
+    }
+
+    private function parseDueDateInput(string $rawDueDate, ?string &$error = null): ?string
+    {
+        $rawDueDate = trim($rawDueDate);
+        if ($rawDueDate === '') {
+            return null;
+        }
+
+        $dateStr = substr($rawDueDate, 0, 10);
+        if (preg_match('/^\\d{4}-\\d{2}-\\d{2}$/', $dateStr) !== 1) {
+            $error = 'Invalid due date.';
+            return null;
+        }
+
+        $dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $dateStr);
+        $errors = \DateTimeImmutable::getLastErrors();
+        if (!$dt || ($errors && ($errors['warning_count'] > 0 || $errors['error_count'] > 0))) {
+            $error = 'Invalid due date.';
+            return null;
+        }
+
+        return $dt->format('Y-m-d');
     }
 
     private function renderListCardHtml(int $listId): ?string
@@ -375,6 +431,7 @@ class IndexController
         return View::renderToString('partials/list-card.view.php', [
             'list' => $list,
             'csrf' => $csrf,
+            'supportsRecurrence' => Query::todosSupportRecurrence($this->db),
         ]);
     }
 

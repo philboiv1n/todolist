@@ -109,6 +109,40 @@ class Recurrence
         return null;
     }
 
+    public static function presetFromRule(?string $ruleJson): string
+    {
+        $rule = self::parseRule($ruleJson);
+        if (!$rule) {
+            return 'none';
+        }
+
+        if ($rule['freq'] === 'daily') {
+            return 'daily';
+        }
+
+        if ($rule['freq'] === 'weekly') {
+            $byweekday = $rule['byweekday'] ?? [];
+            if ($byweekday === [1, 2, 3, 4, 5]) {
+                return 'weekdays';
+            }
+            return 'weekly';
+        }
+
+        if ($rule['freq'] === 'monthly') {
+            $interval = $rule['interval'] ?? 1;
+            if (is_int($interval) && $interval === 3) {
+                return 'quarterly';
+            }
+            return 'monthly';
+        }
+
+        if ($rule['freq'] === 'yearly') {
+            return 'yearly';
+        }
+
+        return 'none';
+    }
+
     /**
      * Compute the next due date (YYYY-MM-DD) for a recurring todo.
      *
