@@ -50,7 +50,7 @@ require __DIR__ . '/partials/layout/header.view.php';
             </div>
         <?php else: ?>
             <div class="uk-card uk-card-default uk-card-body uk-margin">
-                <table class="uk-table uk-table-small uk-table-divider">
+                <table class="uk-table uk-table-small uk-table-divider todo-admin-table">
                     <thead>
                     <tr>
                         <th>Deleted at</th>
@@ -73,10 +73,10 @@ require __DIR__ . '/partials/layout/header.view.php';
                         $deletedByLabel = $deletedByName !== '' ? $deletedByName : ($deletedById > 0 ? "User #{$deletedById}" : 'Unknown');
                         ?>
                         <tr>
-                            <td><?php echo \TodoApp\Security::h($deletedAt); ?></td>
-                            <td><?php echo \TodoApp\Security::h($listLabel); ?></td>
-                            <td><?php echo \TodoApp\Security::h($todoTitle); ?></td>
-                            <td><?php echo \TodoApp\Security::h($deletedByLabel); ?></td>
+                            <td data-label="Deleted at"><?php echo \TodoApp\Security::h($deletedAt); ?></td>
+                            <td data-label="List"><?php echo \TodoApp\Security::h($listLabel); ?></td>
+                            <td data-label="Task"><?php echo \TodoApp\Security::h($todoTitle); ?></td>
+                            <td data-label="Deleted by"><?php echo \TodoApp\Security::h($deletedByLabel); ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

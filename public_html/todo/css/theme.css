@@ -155,6 +155,36 @@ a:not(.uk-button):not(.uk-link-reset) {
     box-shadow: 0 0 0 2px rgba(250, 100, 0, 0.2);
 }
 
+@media (max-width: 640px) {
+    .todo-admin-table thead {
+        display: none;
+    }
+    .todo-admin-table,
+    .todo-admin-table tbody,
+    .todo-admin-table tr,
+    .todo-admin-table td {
+        display: block;
+        width: 100%;
+    }
+    .todo-admin-table tr {
+        padding: 8px 0;
+        border-bottom: 1px solid #e5e5e5;
+    }
+    .todo-admin-table tr:last-child {
+        border-bottom: 0;
+    }
+    .todo-admin-table td {
+        padding: 4px 0;
+    }
+    .todo-admin-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #555;
+        display: inline-block;
+        margin-right: 6px;
+    }
+}
+
 /* Make UIkit "muted/meta" text readable on light backgrounds. */
 .uk-text-meta {
     color: #666;
