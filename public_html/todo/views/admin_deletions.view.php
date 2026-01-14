@@ -56,7 +56,7 @@ require __DIR__ . '/partials/layout/header.view.php';
                         <th>Deleted at</th>
                         <th>List</th>
                         <th>Task</th>
-                        <th>Owner</th>
+                        <th>Deleted by</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -66,17 +66,17 @@ require __DIR__ . '/partials/layout/header.view.php';
                         $listName = (string)($row['list_name'] ?? '');
                         $listId = (int)($row['list_id'] ?? 0);
                         $todoTitle = (string)($row['todo_title'] ?? '');
-                        $ownerName = (string)($row['owner_username'] ?? '');
-                        $ownerId = (int)($row['owner_id'] ?? 0);
+                        $deletedByName = (string)($row['deleted_by_username'] ?? '');
+                        $deletedById = (int)($row['deleted_by_id'] ?? 0);
 
                         $listLabel = $listName !== '' ? $listName : ($listId > 0 ? "List #{$listId}" : 'Unknown');
-                        $ownerLabel = $ownerName !== '' ? $ownerName : ($ownerId > 0 ? "User #{$ownerId}" : 'Unknown');
+                        $deletedByLabel = $deletedByName !== '' ? $deletedByName : ($deletedById > 0 ? "User #{$deletedById}" : 'Unknown');
                         ?>
                         <tr>
                             <td><?php echo \TodoApp\Security::h($deletedAt); ?></td>
                             <td><?php echo \TodoApp\Security::h($listLabel); ?></td>
                             <td><?php echo \TodoApp\Security::h($todoTitle); ?></td>
-                            <td><?php echo \TodoApp\Security::h($ownerLabel); ?></td>
+                            <td><?php echo \TodoApp\Security::h($deletedByLabel); ?></td>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>

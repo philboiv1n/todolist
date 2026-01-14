@@ -243,7 +243,9 @@ class AdminController
             return;
         }
 
-        Query::deleteListAndTodos($this->db, $listId);
+        $actorId = (int)($this->currentUser['id'] ?? 0);
+        $actorName = isset($this->currentUser['username']) ? (string)$this->currentUser['username'] : null;
+        Query::deleteListAndTodos($this->db, $listId, $actorId > 0 ? $actorId : null, $actorName);
         $this->msg = 'List deleted.';
     }
 
@@ -253,7 +255,9 @@ class AdminController
         if ($listId <= 0) {
             return;
         }
-        Query::clearCompletedTodos($this->db, $listId);
+        $actorId = (int)($this->currentUser['id'] ?? 0);
+        $actorName = isset($this->currentUser['username']) ? (string)$this->currentUser['username'] : null;
+        Query::clearCompletedTodos($this->db, $listId, $actorId > 0 ? $actorId : null, $actorName);
         $this->msg = 'All completed tasks for that list have been deleted.';
     }
 

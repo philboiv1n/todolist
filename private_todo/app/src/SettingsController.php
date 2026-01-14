@@ -239,7 +239,8 @@ class SettingsController
         $listId = (int)($_POST['list_id'] ?? 0);
         $this->requireManageableList($listId);
 
-        Query::deleteListAndTodos($this->db, $listId);
+        $username = isset($this->currentUser['username']) ? (string)$this->currentUser['username'] : null;
+        Query::deleteListAndTodos($this->db, $listId, $this->currentUserId, $username);
         $this->msg = 'List deleted.';
     }
 
@@ -248,7 +249,8 @@ class SettingsController
         $listId = (int)($_POST['list_id'] ?? 0);
         $this->requireManageableList($listId);
 
-        Query::clearCompletedTodos($this->db, $listId);
+        $username = isset($this->currentUser['username']) ? (string)$this->currentUser['username'] : null;
+        Query::clearCompletedTodos($this->db, $listId, $this->currentUserId, $username);
         $this->msg = 'All completed tasks for that list have been deleted.';
     }
 

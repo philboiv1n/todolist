@@ -318,7 +318,7 @@ class IndexController
             return null;
         }
 
-        Query::deleteTodo($this->db, $id);
+        Query::deleteTodo($this->db, $id, $this->currentUserId, $this->currentUsername);
         $listId = (int)($todo['list_id'] ?? 0);
         return $listId > 0 ? $listId : null;
     }

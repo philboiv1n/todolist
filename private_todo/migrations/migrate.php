@@ -74,7 +74,9 @@ function ensure_list_schema(SQLite3 $db): void {
             todo_id INTEGER,
             todo_title TEXT NOT NULL,
             owner_id INTEGER,
-            owner_username TEXT
+            owner_username TEXT,
+            deleted_by_id INTEGER,
+            deleted_by_username TEXT
         )'
     );
     $db->exec('CREATE INDEX IF NOT EXISTS idx_todo_deletions_deleted_at ON todo_deletions(deleted_at)');
@@ -123,6 +125,14 @@ function ensure_list_schema(SQLite3 $db): void {
     if (!column_exists($db, 'list_access', 'is_expanded')) {
         echo "Adding column 'is_expanded' to 'list_access' table.\n";
         $db->exec('ALTER TABLE list_access ADD COLUMN is_expanded INTEGER NOT NULL DEFAULT 0');
+    }
+    if (!column_exists($db, 'todo_deletions', 'deleted_by_id')) {
+        echo "Adding column 'deleted_by_id' to 'todo_deletions' table.\n";
+        $db->exec('ALTER TABLE todo_deletions ADD COLUMN deleted_by_id INTEGER');
+    }
+    if (!column_exists($db, 'todo_deletions', 'deleted_by_username')) {
+        echo "Adding column 'deleted_by_username' to 'todo_deletions' table.\n";
+        $db->exec('ALTER TABLE todo_deletions ADD COLUMN deleted_by_username TEXT');
     }
 
     // Used by Security::isLoginRateLimited() to store per-IP login failures.
