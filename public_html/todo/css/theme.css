@@ -205,6 +205,12 @@ a:not(.uk-button):not(.uk-link-reset) {
 .uk-alert-primary {
     color: #333;
 }
+.uk-notification-message-success {
+    background: #edfbf6;
+    color: #0f5132;
+    border: 1px solid #32d296;
+    box-shadow: 0 8px 20px rgba(50, 210, 150, 0.2);
+}
 
 /* Small "X" action buttons (e.g., remove access). */
 .todo-action-x {
