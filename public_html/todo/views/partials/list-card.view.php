@@ -9,6 +9,7 @@ $isExpanded = !empty($list['is_expanded']);
 $listName = \TodoApp\Security::h((string)($list['name'] ?? ''));
 $todos = is_array($list['todos'] ?? null) ? $list['todos'] : [];
 $taskCount = count($todos);
+$taskLabel = $taskCount <= 1 ? 'task' : 'tasks';
 $overdueCutoff = (new DateTimeImmutable('today'))->modify('-3 days');
 $supportsRecurrence = isset($supportsRecurrence) ? (bool)$supportsRecurrence : false;
 ?>
@@ -25,7 +26,7 @@ $supportsRecurrence = isset($supportsRecurrence) ? (bool)$supportsRecurrence : f
                             </span>
                             <span class="todo-list-toggle-icon uk-margin-small-left" uk-icon="chevron-down" aria-hidden="true"></span>
                         </div>
-                        <span class="uk-text-meta todo-list-task-count"><?php echo $taskCount; ?> tasks</span>
+                        <span class="uk-text-meta todo-list-task-count"><?php echo $taskCount . ' ' . $taskLabel; ?></span>
                     </div>
                 </div>
             </summary>

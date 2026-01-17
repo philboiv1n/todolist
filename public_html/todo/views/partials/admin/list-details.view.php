@@ -20,6 +20,7 @@ $listName = \TodoApp\Security::h((string)($list['name'] ?? ''));
 $ownerName = \TodoApp\Security::h((string)($list['owner_name'] ?? ''));
 $createdAt = \TodoApp\Security::h((string)($list['created_at'] ?? ''));
 $count = (int)($listCounts[$listId] ?? 0);
+$countLabel = $count <= 1 ? 'task' : 'tasks';
 $access = $listAccess[$listId] ?? [];
 ?>
 
@@ -30,7 +31,7 @@ $access = $listAccess[$listId] ?? [];
                 <span><?php echo $listName; ?></span>
                 <span class="todo-list-toggle-icon uk-margin-small-left" uk-icon="chevron-down" aria-hidden="true"></span>
             </div>
-            <span class="uk-text-meta"><?php echo $count; ?> tasks</span>
+            <span class="uk-text-meta"><?php echo $count . ' ' . $countLabel; ?></span>
         </div>
     </summary>
 
